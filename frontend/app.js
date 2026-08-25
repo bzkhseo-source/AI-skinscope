@@ -11,6 +11,8 @@ const state = {
   consentGiven: false,
   currentRecordId: null,
   selectedRating: null,
+  facingMode: "environment", // "environment"=후면, "user"=전면
+  returnScreen: "screen-scan", // 결과 화면에서 "뒤로" 눌렀을 때 돌아갈 화면
 };
 
 // ---------------- 사용자 식별자 (간단한 로컬 프로토타입용) ----------------
@@ -23,17 +25,22 @@ function getUserId() {
   return userId;
 }
 
+// ---------------- 화면 전환 공통 헬퍼 ----------------
+function showScreen(targetId) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  document.getElementById(targetId).classList.add("active");
+
+  document.querySelectorAll(".tab-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.target === targetId);
+  });
+}
+
 // ---------------- 탭 전환 ----------------
 function initTabs() {
   const tabButtons = document.querySelectorAll(".tab-btn");
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      tabButtons.forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
-      document.getElementById(btn.dataset.target).classList.add("active");
-
+      showScreen(btn.dataset.target);
       if (btn.dataset.target === "screen-history") {
         loadHistory();
       }
@@ -42,16 +49,38 @@ function initTabs() {
 }
 
 // ---------------- 동의 체크박스 ----------------
+const CONSENT_STORAGE_KEY = "skinscope_consent_given";
+
+function applyConsentGiven() {
+  state.consentGiven = true;
+  document.getElementById("consentCheckbox").checked = true;
+  document.getElementById("consentCard").style.display = "none";
+  document.getElementById("shutterBtn").disabled = false;
+  document.getElementById("fileTriggerBtn").disabled = false;
+  document.getElementById("cameraSwitchBtn").disabled = false;
+}
+
 function initConsent() {
   const checkbox = document.getElementById("consentCheckbox");
   const shutterBtn = document.getElementById("shutterBtn");
   const fileTriggerBtn = document.getElementById("fileTriggerBtn");
+  const cameraSwitchBtn = document.getElementById("cameraSwitchBtn");
+
+  // 이전에 이미 동의한 적이 있으면, 안내 카드를 다시 보여주지 않는다.
+  if (localStorage.getItem(CONSENT_STORAGE_KEY) === "true") {
+    applyConsentGiven();
+    startCamera();
+  }
 
   checkbox.addEventListener("change", () => {
     state.consentGiven = checkbox.checked;
     shutterBtn.disabled = !state.consentGiven;
     fileTriggerBtn.disabled = !state.consentGiven;
+    cameraSwitchBtn.disabled = !state.consentGiven;
+
     if (state.consentGiven) {
+      localStorage.setItem(CONSENT_STORAGE_KEY, "true");
+      document.getElementById("consentCard").style.display = "none";
       startCamera();
     } else {
       stopCamera();
@@ -64,7 +93,7 @@ async function startCamera() {
   const video = document.getElementById("cameraVideo");
   try {
     state.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
+      video: { facingMode: state.facingMode },
       audio: false,
     });
     video.srcObject = state.stream;
@@ -82,12 +111,24 @@ function stopCamera() {
   document.getElementById("viewfinderWrap").classList.remove("scanning");
 }
 
+async function switchCamera() {
+  state.facingMode = state.facingMode === "environment" ? "user" : "environment";
+  stopCamera();
+  await startCamera();
+}
+
 function capturePhotoFromVideo() {
   const video = document.getElementById("cameraVideo");
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth || 720;
   canvas.height = video.videoHeight || 960;
   const ctx = canvas.getContext("2d");
+
+  // 전면 카메라는 좌우 반전되어 보이므로, 저장 시에는 원래 방향으로 되돌린다.
+  if (state.facingMode === "user") {
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
   canvas.toBlob(
@@ -111,6 +152,7 @@ function onPhotoCaptured(blob) {
 
   document.getElementById("shutterBtn").style.display = "none";
   document.getElementById("fileTriggerBtn").style.display = "none";
+  document.getElementById("cameraSwitchBtn").style.display = "none";
   document.getElementById("consentCard").style.display = "none";
   document.getElementById("analyzeBtn").style.display = "block";
   document.getElementById("retakeBtn").style.display = "block";
@@ -126,11 +168,13 @@ function resetCaptureUI() {
   document.getElementById("viewfinderWrap").style.display = "";
   document.getElementById("shutterBtn").style.display = "inline-block";
   document.getElementById("fileTriggerBtn").style.display = "block";
-  document.getElementById("consentCard").style.display = "block";
+  document.getElementById("cameraSwitchBtn").style.display = "block";
+  // 이미 동의를 완료한 사용자에게는 안내 카드를 다시 띄우지 않는다.
+  document.getElementById("consentCard").style.display = state.consentGiven ? "none" : "block";
   document.getElementById("analyzeBtn").style.display = "none";
   document.getElementById("retakeBtn").style.display = "none";
-  document.getElementById("resultReport").style.display = "none";
 
+  showScreen("screen-scan");
   if (state.consentGiven) startCamera();
 }
 
@@ -178,7 +222,9 @@ async function submitAnalysis() {
     }
 
     const result = await response.json();
-    renderResult(result);
+    const thumbUrl = URL.createObjectURL(state.capturedBlob);
+    state.returnScreen = "screen-scan";
+    renderResult(result, thumbUrl);
   } catch (err) {
     alert("분석 중 오류가 발생했습니다: " + err.message);
     console.error(err);
@@ -197,22 +243,37 @@ const FEATURE_LABELS = {
   redness: "붉은기",
 };
 
-function renderResult(result) {
+function renderResult(result, thumbUrl) {
   const vision = result.vision;
   state.currentRecordId = result.record_id || null;
   resetFeedbackUI();
 
-  document.getElementById("scoreGauge").style.setProperty("--pct", vision.overall_score);
-  document.getElementById("scoreValue").textContent = vision.overall_score;
+  // 상단 요약 카드
+  const resultThumb = document.getElementById("resultThumb");
+  if (thumbUrl) {
+    resultThumb.src = thumbUrl;
+    resultThumb.style.display = "block";
+  } else {
+    resultThumb.style.display = "none";
+  }
+  document.getElementById("summaryScoreValue").textContent = vision.overall_score;
 
+  const summaryBadge = document.getElementById("summaryStatusBadge");
   const badge = document.getElementById("statusBadge");
   if (result.needs_dermatologist) {
+    summaryBadge.textContent = "전문의 상담 권장";
+    summaryBadge.className = "badge warn";
     badge.textContent = "전문의 상담 권장";
     badge.className = "badge warn";
   } else {
+    summaryBadge.textContent = "양호";
+    summaryBadge.className = "badge ok";
     badge.textContent = "양호";
     badge.className = "badge ok";
   }
+
+  document.getElementById("scoreGauge").style.setProperty("--pct", vision.overall_score);
+  document.getElementById("scoreValue").textContent = vision.overall_score;
 
   const grid = document.getElementById("featureGrid");
   grid.innerHTML = "";
@@ -226,6 +287,26 @@ function renderResult(result) {
     `;
     grid.appendChild(item);
   });
+
+  const patternsList = document.getElementById("patternsList");
+  patternsList.innerHTML = "";
+  if (vision.suspected_patterns && vision.suspected_patterns.length > 0) {
+    vision.suspected_patterns.forEach((p) => {
+      const div = document.createElement("div");
+      div.className = "pattern-item";
+      div.innerHTML = `
+        <div class="pattern-head">
+          <span class="pattern-name">${p.name}</span>
+          <span class="pattern-similarity">유사도 ${p.similarity}%</span>
+        </div>
+        <div class="pattern-note">${p.note || ""}</div>
+      `;
+      patternsList.appendChild(div);
+    });
+  } else {
+    patternsList.innerHTML =
+      '<div class="pattern-empty">사진에서 특별히 두드러진 질환 패턴은 발견되지 않았습니다.</div>';
+  }
 
   document.getElementById("aiSummaryText").textContent = vision.ai_summary;
 
@@ -257,25 +338,13 @@ function renderResult(result) {
   }
 
   document.getElementById("resultReport").style.display = "flex";
+
+  // 결과 전용 화면으로 전환 (탭바에는 없는 화면이므로 showScreen 대신 직접 처리)
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  document.getElementById("screen-result").classList.add("active");
 }
 
 // ---------------- 이력 상세보기 ----------------
-function activateScanTab() {
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-  document.querySelector('.tab-btn[data-target="screen-scan"]').classList.add("active");
-  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
-  document.getElementById("screen-scan").classList.add("active");
-}
-
-function hideCaptureUI() {
-  document.getElementById("consentCard").style.display = "none";
-  document.getElementById("viewfinderWrap").style.display = "none";
-  document.getElementById("shutterBtn").style.display = "none";
-  document.getElementById("fileTriggerBtn").style.display = "none";
-  document.getElementById("analyzeBtn").style.display = "none";
-  document.getElementById("retakeBtn").style.display = "none";
-}
-
 async function openHistoryDetail(recordId) {
   const loadingOverlay = document.getElementById("loadingOverlay");
   loadingOverlay.classList.add("active");
@@ -284,9 +353,8 @@ async function openHistoryDetail(recordId) {
     if (!response.ok) throw new Error(`상세 조회 실패 (${response.status})`);
     const result = await response.json();
 
-    activateScanTab();
-    hideCaptureUI();
-    renderResult(result);
+    state.returnScreen = "screen-history";
+    renderResult(result, null);
   } catch (err) {
     alert("상세 정보를 불러오지 못했습니다: " + err.message);
     console.error(err);
@@ -376,7 +444,6 @@ function initUserIdField() {
       saveBtn.textContent = originalLabel;
     }, 1200);
 
-    // 현재 이력 화면이 열려있으면 새 ID 기준으로 다시 불러온다.
     if (document.getElementById("screen-history").classList.contains("active")) {
       loadHistory();
     }
@@ -443,6 +510,7 @@ function init() {
   initFeedback();
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);
+  document.getElementById("cameraSwitchBtn").addEventListener("click", switchCamera);
 
   document.getElementById("fileTriggerBtn").addEventListener("click", () => {
     document.getElementById("fileInput").click();
@@ -456,6 +524,15 @@ function init() {
   document.getElementById("analyzeBtn").addEventListener("click", submitAnalysis);
   document.getElementById("retakeBtn").addEventListener("click", resetCaptureUI);
   document.getElementById("newScanBtn").addEventListener("click", resetCaptureUI);
+
+  document.getElementById("resultBackBtn").addEventListener("click", () => {
+    if (state.returnScreen === "screen-history") {
+      showScreen("screen-history");
+      loadHistory();
+    } else {
+      resetCaptureUI();
+    }
+  });
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch((err) => {

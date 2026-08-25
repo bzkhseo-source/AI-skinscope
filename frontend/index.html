@@ -46,6 +46,9 @@
     <div class="viewfinder-wrap" id="viewfinderWrap">
       <video id="cameraVideo" autoplay playsinline muted></video>
       <img id="previewImg" class="preview" style="display:none" alt="촬영된 사진 미리보기" />
+      <button class="camera-switch-btn" id="cameraSwitchBtn" aria-label="전/후면 카메라 전환" disabled>
+        ⟳
+      </button>
       <div class="viewfinder-frame">
         <div class="corner tl"></div>
         <div class="corner tr"></div>
@@ -63,11 +66,22 @@
 
     <button class="btn-primary" id="analyzeBtn" style="display:none">이 사진으로 분석하기</button>
     <button class="btn-secondary" id="retakeBtn" style="display:none">다시 촬영</button>
+  </section>
 
-    <!-- 분석 결과 리포트 -->
+  <!-- ============ 화면 2: 결과 (촬영/이력 상세에서 진입) ============ -->
+  <section id="screen-result" class="screen">
+    <button class="back-btn" id="resultBackBtn">← 뒤로</button>
+
+    <div class="result-summary-card">
+      <img id="resultThumb" class="result-thumb" alt="분석한 사진" />
+      <div class="result-summary-text">
+        <div class="report-eyebrow">Scan Result</div>
+        <div class="result-summary-score"><span id="summaryScoreValue">0</span><small>/100</small></div>
+        <span class="badge ok" id="summaryStatusBadge">양호</span>
+      </div>
+    </div>
+
     <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
-
-      <div class="report-eyebrow">Scan Report</div>
 
       <div class="gauge-card">
         <div class="gauge" id="scoreGauge" style="--pct:0">
@@ -80,6 +94,15 @@
       </div>
 
       <div class="feature-grid" id="featureGrid"></div>
+
+      <div class="section-card" id="patternsCard">
+        <h3>참고 패턴 안내</h3>
+        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+          아래는 사진에서 관찰된 시각적 특징과 유사한 패턴을 참고용으로 안내하는 것이며,
+          <strong>의료 진단이 아닙니다.</strong>
+        </p>
+        <div id="patternsList"></div>
+      </div>
 
       <div class="section-card">
         <h3>AI 소견</h3>
@@ -114,10 +137,9 @@
 
       <button class="btn-secondary" id="newScanBtn">새로 스캔하기</button>
     </div>
-
   </section>
 
-  <!-- ============ 화면 2: 이력 ============ -->
+  <!-- ============ 화면 3: 이력 ============ -->
   <section id="screen-history" class="screen">
     <div class="report-eyebrow">History</div>
 
@@ -133,12 +155,64 @@
     </div>
   </section>
 
+  <!-- ============ 화면 4: 기술 소개 ============ -->
+  <section id="screen-about" class="screen">
+    <div class="report-eyebrow">How It Works</div>
+
+    <div class="about-card">
+      <h3>SkinScope의 분석 방식</h3>
+      <p>
+        AI-SkinScope는 Google Gemini Vision의 멀티모달 이미지 분석과
+        AI Hub 공인 데이터셋을 결합한 스크리닝 로직으로 동작합니다.
+      </p>
+    </div>
+
+    <div class="about-card">
+      <h3>기반 데이터</h3>
+      <p>
+        안면부 피부질환 이미지 <strong>12,000장</strong> 규모와 한국인 피부상태
+        실측 데이터 <strong>13,936명</strong> 규모의 AI Hub 공인 데이터셋을
+        기반으로 분석 로직을 설계했습니다.
+      </p>
+      <ul>
+        <li>이 중 <strong>800건</strong>(질환 사례 500 + 실측 인물 300)을
+          임베딩(gemini-embedding-2)하여 실시간 근접 사례 검색(RAG)에 활용</li>
+        <li><strong>1,072명 전수 실측 데이터</strong>를 분석해 산출한 인구 백분위를
+          점수화 기준값으로 활용</li>
+      </ul>
+    </div>
+
+    <div class="about-card">
+      <h3>분석 3단계</h3>
+      <ol>
+        <li><strong>특징 추출</strong> — Gemini Vision이 사진에서 모공·탄력·수분·주름·
+          색소침착·붉은기 등 시각적 특징을 분석</li>
+        <li><strong>근접 사례 비교</strong> — 사진 임베딩과 가장 유사한 실제 질환
+          사례·실측 인물 데이터를 검색해 근거로 반영</li>
+        <li><strong>종합 판단</strong> — AI Agent가 점수를 산출하고, 심각도에 따라
+          전문의 상담 필요 여부와 근처 병원 정보를 안내</li>
+      </ol>
+    </div>
+
+    <div class="about-card">
+      <h3>꼭 알아주세요</h3>
+      <p style="margin:0;">
+        본 서비스의 모든 결과는 <strong>참고용 스크리닝</strong>이며 의료 진단이
+        아닙니다. 심각도가 높게 나오거나 증상이 지속될 경우 반드시 피부과
+        전문의와 상담하시기 바랍니다.
+      </p>
+    </div>
+  </section>
+
   <nav class="tab-bar">
     <button class="tab-btn active" data-target="screen-scan">
       <span class="icon">◎</span>스캔
     </button>
     <button class="tab-btn" data-target="screen-history">
       <span class="icon">≣</span>이력
+    </button>
+    <button class="tab-btn" data-target="screen-about">
+      <span class="icon">ⓘ</span>소개
     </button>
   </nav>
 

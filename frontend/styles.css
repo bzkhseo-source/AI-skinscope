@@ -88,9 +88,12 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--color-line);
+  margin: 14px 20px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
   background: var(--color-surface);
+  box-sizing: border-box;
 }
 
 .user-id-bar .user-id-label {
@@ -98,14 +101,15 @@ body {
   font-size: 11px;
   color: var(--color-ink-soft);
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .user-id-bar input {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   border: 1px solid var(--color-line);
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   font-family: var(--font-mono);
   font-size: 13px;
   background: var(--color-bg);
@@ -257,6 +261,96 @@ body {
   text-decoration: underline;
   cursor: pointer;
 }
+
+.camera-switch-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.camera-switch-btn:disabled { opacity: 0.4; }
+
+/* ---------- 뒤로가기 버튼 ---------- */
+.back-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ---------- 결과 요약 카드 (촬영 사진 + 핵심 요약) ---------- */
+.result-summary-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 14px;
+}
+
+.result-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-line);
+}
+
+.result-summary-text { display: flex; flex-direction: column; gap: 4px; }
+
+.result-summary-score {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.result-summary-score small { font-size: 13px; color: var(--color-ink-soft); }
+
+/* ---------- 소개 페이지 ---------- */
+.about-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  padding: 16px;
+}
+
+.about-card h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.about-card p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.about-card ul,
+.about-card ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.about-card li { margin-bottom: 4px; }
 
 /* ---------- 동의 카드 ---------- */
 .consent-card {
@@ -413,6 +507,43 @@ body {
 .hospital-item:first-child { border-top: none; padding-top: 0; }
 .hospital-item .name { font-weight: 600; }
 .hospital-item .meta { color: var(--color-ink-soft); font-size: 12px; }
+
+/* ---------- 참고 패턴(질환 의심) ---------- */
+.pattern-item {
+  border-top: 1px solid var(--color-line);
+  padding: 10px 0;
+}
+
+.pattern-item:first-child { border-top: none; padding-top: 0; }
+
+.pattern-item .pattern-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.pattern-item .pattern-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.pattern-item .pattern-similarity {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-accent);
+}
+
+.pattern-item .pattern-note {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.pattern-empty {
+  font-size: 13px;
+  color: var(--color-ink-soft);
+}
 
 /* ---------- 피드백 ---------- */
 .rating-row {
