@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AI-SkinScope</title>
+<meta name="description" content="AI 피부 상태 스크리닝 & 코칭 (참고용, 의료 진단 아님)" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1F5C56" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="app-header">
+    <div>
+      <div class="logo">AI-<span>SkinScope</span></div>
+      <div class="tagline">Reference Screening, Not Diagnosis</div>
+    </div>
+  </header>
+
+  <div class="user-id-bar">
+    <span class="user-id-label">ID</span>
+    <input type="text" id="userIdInput" maxlength="40" placeholder="사용자 ID 입력" />
+    <button id="userIdSaveBtn">저장</button>
+  </div>
+
+  <!-- ============ 화면 1: 촬영 ============ -->
+  <section id="screen-scan" class="screen active">
+
+    <div class="consent-card" id="consentCard">
+      <strong>촬영 전 확인해주세요</strong>
+      <p style="margin:8px 0 0">
+        촬영한 사진은 AI 분석 및 이력 저장 목적으로만 사용되며,
+        서버에 암호화되어 저장됩니다. 언제든 이력 화면에서 삭제를 요청할 수 있습니다.
+        분석 결과는 <strong>의료 진단이 아닌 참고용 스크리닝</strong>입니다.
+      </p>
+      <label>
+        <input type="checkbox" id="consentCheckbox" />
+        <span>위 내용에 동의하고 촬영을 시작합니다</span>
+      </label>
+    </div>
+
+    <div class="viewfinder-wrap" id="viewfinderWrap">
+      <video id="cameraVideo" autoplay playsinline muted></video>
+      <img id="previewImg" class="preview" style="display:none" alt="촬영된 사진 미리보기" />
+      <div class="viewfinder-frame">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+
+    <div class="capture-controls">
+      <button class="shutter-btn" id="shutterBtn" disabled aria-label="촬영"></button>
+    </div>
+    <button class="file-btn" id="fileTriggerBtn" disabled>갤러리에서 사진 선택</button>
+    <input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+    <button class="btn-primary" id="analyzeBtn" style="display:none">이 사진으로 분석하기</button>
+    <button class="btn-secondary" id="retakeBtn" style="display:none">다시 촬영</button>
+
+    <!-- 분석 결과 리포트 -->
+    <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
+
+      <div class="report-eyebrow">Scan Report</div>
+
+      <div class="gauge-card">
+        <div class="gauge" id="scoreGauge" style="--pct:0">
+          <div class="value"><span id="scoreValue">0</span><small>/100</small></div>
+        </div>
+        <span class="badge ok" id="statusBadge">양호</span>
+        <div class="disclaimer">
+          본 결과는 AI 참고용 스크리닝이며 의료 진단이 아닙니다. 정확한 진단은 피부과 전문의와 상담하세요.
+        </div>
+      </div>
+
+      <div class="feature-grid" id="featureGrid"></div>
+
+      <div class="section-card">
+        <h3>AI 소견</h3>
+        <p id="aiSummaryText" style="font-size:13px; line-height:1.6; margin:0;"></p>
+      </div>
+
+      <div class="section-card" id="careTipsCard">
+        <h3>관리 팁</h3>
+        <ul id="careTipsList"></ul>
+      </div>
+
+      <div class="section-card" id="hospitalCard" style="display:none">
+        <h3>근처 피부과</h3>
+        <div id="hospitalList"></div>
+      </div>
+
+      <button class="btn-secondary" id="newScanBtn">새로 스캔하기</button>
+    </div>
+
+  </section>
+
+  <!-- ============ 화면 2: 이력 ============ -->
+  <section id="screen-history" class="screen">
+    <div class="report-eyebrow">History</div>
+
+    <div id="trendBanner" style="display:none" class="trend-banner">
+      <div style="font-family:var(--font-mono); font-size:11px; opacity:.8;">TREND</div>
+      <div class="delta" id="trendDelta">+0</div>
+      <div id="trendMessage" style="font-size:13px; margin-top:4px;"></div>
+    </div>
+
+    <div class="history-list" id="historyList"></div>
+    <div class="empty-state" id="historyEmpty" style="display:none">
+      아직 저장된 기록이 없습니다.<br />첫 스캔을 진행해보세요.
+    </div>
+  </section>
+
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-target="screen-scan">
+      <span class="icon">◎</span>스캔
+    </button>
+    <button class="tab-btn" data-target="screen-history">
+      <span class="icon">≣</span>이력
+    </button>
+  </nav>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div style="font-family:var(--font-mono); font-size:12px; color:var(--color-ink-soft);">분석 중...</div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

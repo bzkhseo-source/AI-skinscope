@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.models.database import Base, engine
+from app.models import record  # noqa: F401 - 테이블 등록을 위해 임포트 필요
+from app.routers import analyze, history
+
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI(
     title="AI-SkinScope",
     description="AI 피부 상태 스크리닝 & 코칭 서비스 (참고용, 의료 진단 아님)",
@@ -15,6 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(analyze.router)
+app.include_router(history.router)
 
 @app.get("/")
 def read_root():
