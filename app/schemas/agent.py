@@ -17,6 +17,9 @@ class HospitalInfo(BaseModel):
 class AgentResult(BaseModel):
     """AI Agent가 최종적으로 사용자에게 반환하는 결과"""
 
+    record_id: Optional[int] = Field(
+        default=None, description="저장된 기록의 ID (피드백 제출 시 사용)"
+    )
     vision: SkinAnalysisResult
     needs_dermatologist: bool = Field(..., description="Agent가 최종 판단한 병원 방문 권장 여부")
     recommendation_message: str = Field(..., description="Agent가 생성한 종합 안내 메시지")

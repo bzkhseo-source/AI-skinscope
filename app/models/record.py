@@ -19,3 +19,7 @@ class SkinRecord(Base):
 
     # AgentResult 전체를 JSON 문자열로 저장 (프로토타입 단계의 단순화된 저장 방식)
     result_json = Column(Text, nullable=False)
+
+    # FR-10: 사용자 피드백 (분석 직후 선택적으로 제출)
+    satisfaction_rating = Column(Integer, nullable=True)
+    feedback_comment = Column(Text, nullable=True)

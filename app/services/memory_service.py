@@ -37,6 +37,16 @@ def get_record(db: Session, user_id: str, record_id: int) -> Optional[SkinRecord
         .first()
     )
 
+def save_feedback(db: Session, user_id: str, record_id: int, rating: int, comment: Optional[str]) -> Optional[SkinRecord]:
+    record = get_record(db, user_id, record_id)
+    if record is None:
+        return None
+    record.satisfaction_rating = rating
+    record.feedback_comment = comment
+    db.commit()
+    db.refresh(record)
+    return record
+
 def compute_trend(records: List[SkinRecord]) -> Optional[TrendInfo]:
     """가장 최근 두 기록(records[0]=최신, records[1]=이전)을 비교한다."""
     if len(records) < 2:

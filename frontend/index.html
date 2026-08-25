@@ -96,6 +96,22 @@
         <div id="hospitalList"></div>
       </div>
 
+      <div class="section-card" id="feedbackCard">
+        <h3>이 결과가 도움이 되었나요?</h3>
+        <div class="rating-row" id="ratingRow">
+          <button class="rating-btn" data-rating="1">1</button>
+          <button class="rating-btn" data-rating="2">2</button>
+          <button class="rating-btn" data-rating="3">3</button>
+          <button class="rating-btn" data-rating="4">4</button>
+          <button class="rating-btn" data-rating="5">5</button>
+        </div>
+        <textarea id="feedbackComment" rows="2" placeholder="추가 의견이 있다면 남겨주세요 (선택)"></textarea>
+        <button class="btn-secondary" id="feedbackSubmitBtn" style="width:100%; margin-top:8px;">피드백 보내기</button>
+        <div id="feedbackDone" style="display:none; font-size:12px; color:var(--color-sage); margin-top:6px;">
+          소중한 의견 감사합니다!
+        </div>
+      </div>
+
       <button class="btn-secondary" id="newScanBtn">새로 스캔하기</button>
     </div>
 

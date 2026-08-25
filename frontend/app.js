@@ -9,8 +9,9 @@ const state = {
   stream: null,
   capturedBlob: null,
   consentGiven: false,
+  currentRecordId: null,
+  selectedRating: null,
 };
-
 // ---------------- 사용자 식별자 (간단한 로컬 프로토타입용) ----------------
 function getUserId() {
   let userId = localStorage.getItem("skinscope_user_id");
@@ -197,6 +198,8 @@ const FEATURE_LABELS = {
 
 function renderResult(result) {
   const vision = result.vision;
+  state.currentRecordId = result.record_id || null;
+  resetFeedbackUI();
 
   document.getElementById("scoreGauge").style.setProperty("--pct", vision.overall_score);
   document.getElementById("scoreValue").textContent = vision.overall_score;
@@ -382,6 +385,61 @@ function initUserIdField() {
     if (e.key === "Enter") saveBtn.click();
   });
 }
+
+// ---------------- 피드백 (FR-10) ----------------
+function resetFeedbackUI() {
+  state.selectedRating = null;
+  document.querySelectorAll(".rating-btn").forEach((btn) => btn.classList.remove("selected"));
+  document.getElementById("feedbackComment").value = "";
+  document.getElementById("feedbackDone").style.display = "none";
+  document.getElementById("feedbackCard").style.display = state.currentRecordId ? "block" : "none";
+}
+
+function initFeedback() {
+  document.querySelectorAll(".rating-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.selectedRating = Number(btn.dataset.rating);
+      document.querySelectorAll(".rating-btn").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+    });
+  });
+
+  document.getElementById("feedbackSubmitBtn").addEventListener("click", async () => {
+    if (!state.currentRecordId) return;
+    if (!state.selectedRating) {
+      alert("만족도 점수를 선택해주세요.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/analyze/${state.currentRecordId}/feedback`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: getUserId(),
+            rating: state.selectedRating,
+            comment: document.getElementById("feedbackComment").value.trim() || null,
+          }),
+        }
+      );
+      if (!response.ok) throw new Error(`제출 실패 (${response.status})`);
+
+      document.getElementById("feedbackDone").style.display = "block";
+    } catch (err) {
+      alert("피드백 제출 중 오류가 발생했습니다: " + err.message);
+      console.error(err);
+    }
+  });
+}
+
+// ---------------- 초기화 ----------------
+function init() {
+  initTabs();
+  initConsent();
+  initUserIdField();
+  initFeedback();
 
 // ---------------- 초기화 ----------------
 function init() {

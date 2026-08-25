@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.schemas.agent import AgentResult
+from app.schemas.feedback import FeedbackRequest
 from app.services.agent_service import run_skin_analysis_agent
-from app.services.memory_service import save_record
+from app.services.memory_service import save_feedback, save_record
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
@@ -42,5 +43,21 @@ async def analyze_skin(
         # Gemini 모든 모델 호출 실패(쿼터 초과 등)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    save_record(db, user_id=user_id, agent_result=result)
-    return result
+    record = save_record(db, user_id=user_id, agent_result=result)
+    return result.model_copy(update={"record_id": record.id})
+
+
+@router.post("/{record_id}/feedback")
+def submit_feedback(
+    record_id: int, payload: FeedbackRequest, db: Session = Depends(get_db)
+) -> dict:
+    record = save_feedback(
+        db,
+        user_id=payload.user_id,
+        record_id=record_id,
+        rating=payload.rating,
+        comment=payload.comment,
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="해당 기록을 찾을 수 없습니다.")
+    return {"status": "ok"}
