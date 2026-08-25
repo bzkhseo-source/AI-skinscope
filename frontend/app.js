@@ -2,8 +2,8 @@
 // AI-SkinScope — 프론트엔드 로직
 // ============================================================
 
-// 배포 시 이 값을 Render 백엔드 URL로 교체하세요.
-const API_BASE = "http://127.0.0.1:8000";
+// 배포된 Render 백엔드 URL
+const API_BASE = "https://ai-skinscope.onrender.com";
 
 const state = {
   stream: null,
