@@ -12,6 +12,7 @@ const state = {
   currentRecordId: null,
   selectedRating: null,
 };
+
 // ---------------- 사용자 식별자 (간단한 로컬 프로토타입용) ----------------
 function getUserId() {
   let userId = localStorage.getItem("skinscope_user_id");
@@ -440,12 +441,6 @@ function init() {
   initConsent();
   initUserIdField();
   initFeedback();
-
-// ---------------- 초기화 ----------------
-function init() {
-  initTabs();
-  initConsent();
-  initUserIdField();
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);
 
