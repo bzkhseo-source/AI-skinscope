@@ -57,6 +57,10 @@ class AgentResult(BaseModel):
         default=None,
         description="feature_scores와 가장 가까운 연령대 그룹을 기준으로 산출한 피부나이",
     )
+    skin_age_reliable: Optional[bool] = Field(
+        default=None,
+        description="skin_age가 입력 age와 지나치게 어긋나거나 참고 데이터의 연령대 범위를 벗어나 신뢰하기 어려운 경우 False",
+    )
     peer_comparison_note: Optional[str] = Field(
         default=None,
         description="나이를 입력한 경우, 동일 연령대(·성별) 그룹과 비교한 한 줄 코멘트",

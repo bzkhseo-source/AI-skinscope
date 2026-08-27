@@ -17,6 +17,7 @@ def save_record(db: Session, user_id: str, agent_result: AgentResult) -> SkinRec
         age=agent_result.age,
         gender=agent_result.gender,
         skin_age=agent_result.skin_age,
+        skin_age_reliable=agent_result.skin_age_reliable,
     )
     db.add(record)
     db.commit()

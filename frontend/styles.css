@@ -298,6 +298,27 @@ body {
   pointer-events: none;
 }
 
+.camera-error {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(23, 20, 18, 0.88);
+}
+
+.camera-error p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 .viewfinder-frame .corner {
   position: absolute;
   width: 28px;

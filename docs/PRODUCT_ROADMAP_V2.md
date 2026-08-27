@@ -123,13 +123,25 @@ action_items: List[str]  # 구체적 관리 행동 제안 (기존 care_tips와 �
 `measurement_data.csv`(실측값)를 subject_no로 조인해 연령대(10년 단위)×성별
 그룹별 백분위(`app/data/age_gender_reference.json`)를 만든다. 12개 연령대×성별
 그룹 모두 표본이 충분해(최소 51명) fallback 없이 전부 사용 가능했다.
-`vision_service.py`의 `_build_dynamic_population_text()`가 나이 입력 시 이
-그룹 anchor로 프롬프트를 대체하고, `compute_skin_age()`가 사용자 feature_scores와
-가장 가까운 연령대를 유클리드 거리로 찾아 피부나이를 산출한다. 동년배 비교
-문구(`peer_comparison_note`)는 Gemini를 다시 호출하지 않고 사전 집계된 통계만으로
+**신뢰성 버그 수정(2026-08-27, v2)**: 최초 구현은 나이 입력 시
+`_build_dynamic_population_text()`로 Gemini의 채점 anchor 자체를 해당
+연령대 그룹으로 바꿔치기했는데, `compute_skin_age()`/`build_peer_comparison_note()`는
+그 결과를 항상 "전체 인구 기준" 좌표계로 가정하고 비교하는 구조였다. 두
+함수가 서로 다른 좌표계를 같은 좌표계로 착각해 비교한 탓에, 나이가 많을수록
+피부나이가 구조적으로 낮게 나오는 편향이 있었다(상세: `docs/SKIN_AGE_RELIABILITY_SPEC.md`).
+수정 후에는 Gemini의 feature_scores 채점 anchor를 나이 입력 여부와 무관하게
+항상 `POPULATION_REFERENCE`(전체 인구 기준)로 고정하고, `_build_dynamic_population_text()`는
+제거했다. "동년배 비교"는 `compute_skin_age()`/`build_peer_comparison_note()`가
+전체 인구 기준으로 계산된 feature_scores를 연령대별 실측 프로필과 비교하는
+방식으로만 수행한다. `compute_skin_age()`는 입력 `age`와의 차이가 ±20세를
+넘거나 입력 나이가 참고 데이터 최고 연령대(60대) 대표값보다 10세 이상
+많으면 `skin_age_reliable=False`를 반환해, 프론트에서 숫자 대신 "참고용"
+안내 문구로 대체하도록 했다.
+
+동년배 비교 문구(`peer_comparison_note`)는 Gemini를 다시 호출하지 않고 사전 집계된 통계만으로
 결정론적으로 생성해 비용을 늘리지 않았다. `skin_records` 테이블에는 Alembic 없이
-가벼운 startup 마이그레이션(`app/main.py`)으로 `age`/`gender`/`skin_age` 컬럼을
-추가해, 기존에 저장된 실사용자 테스트 기록도 깨지지 않고 그대로 유지된다.
+가벼운 startup 마이그레이션(`app/main.py`)으로 `age`/`gender`/`skin_age`/
+`skin_age_reliable` 컬럼을 추가해, 기존에 저장된 실사용자 테스트 기록도 깨지지 않고 그대로 유지된다.
 
 ---
 
@@ -206,6 +218,7 @@ LMM 생성, 내국인 신청 가능)
 age INTEGER NULL
 gender VARCHAR(10) NULL
 skin_age INTEGER NULL
+skin_age_reliable BOOLEAN NULL
 ```
 
 ---

@@ -267,37 +267,6 @@ def _select_age_gender_group(
     return None, None
 
 
-def _build_dynamic_population_text(age: Optional[int], gender: Optional[str]) -> Optional[str]:
-    """사용자가 나이를 입력한 경우, 전체 인구 대신 동일 연령대(±성별) anchor 텍스트를 만든다."""
-    group, label = _select_age_gender_group(age, gender)
-    if not group or not label:
-        return None
-
-    lines = []
-    for metric, kor_label in FEATURE_METRIC_LABELS_KO.items():
-        stats = group.get(metric)
-        if not stats:
-            continue
-        lines.append(
-            f"- {kor_label}: {label} 평균(중앙값) {stats['p50']}, "
-            f"하위5% {stats['p5']}, 상위5% {stats['p95']}"
-        )
-    if not lines:
-        return None
-    body = "\n".join(lines)
-
-    return f"""아래는 국내 {label} {group['count']}명의 정밀 피부 측정 장비 실측 분포(AI Hub
-한국인 피부상태 측정 데이터 기준, 사용자와 동일한 연령대{"·성별" if "여성" in label or "남성" in label else ""}
-그룹)이다. 사진에서 장비 수치를 직접 측정할 수는 없지만, 아래 분포를 "이 연령대에서
-무엇이 평균이고 무엇이 심한 축에 속하는지" 판단하는 기준점(anchor)으로 삼아 0~100
-점수를 매겨라. 점수 50 = 이 그룹 중앙값 수준, 점수 90 이상 = 이 그룹 상위 5% 우수
-수준, 점수 10 이하 = 이 그룹 하위 5% 열악한 수준을 의미하도록 보정하라.
-
-{body}
-- 붉은기(redness): 이 데이터셋에는 별도 장비 측정치가 없으므로, 사진에서 관찰되는
-  홍반·모세혈관 확장·염증 정도를 기준으로 임상적으로 판단하라."""
-
-
 def _age_band_score_profile(age_band_key: str) -> Optional[dict]:
     """특정 연령대 그룹의 중앙값을, 전체 인구 백분위 기준 0~100 점수로 환산한다.
 
@@ -318,16 +287,38 @@ def _age_band_score_profile(age_band_key: str) -> Optional[dict]:
     return profile
 
 
-def compute_skin_age(feature_scores: SkinFeatureScores) -> Optional[int]:
-    """사용자의 feature_scores와 가장 가까운(유클리드 거리 최소) 연령대의 대표 나이를 구한다.
+# skin_age와 입력 age의 차이가 이 값을 넘으면 신뢰할 수 없는 결과로 표시한다.
+SKIN_AGE_MAX_RELIABLE_DIFF = 20
+# 최고 연령대 구간 대표값보다 입력 나이가 이만큼 이상 많으면(예: 60대 구간
+# 대표값 65세 대비 10세 이상), 참고할 상위 연령대 데이터 자체가 없다는 뜻이므로
+# 신뢰할 수 없는 결과로 표시한다.
+SKIN_AGE_MAX_BAND_OVERAGE = 10
 
-    사용자가 실제 나이를 입력했는지 여부와 무관하게, "이 피부 특징이 어느
-    연령대 평균과 가장 비슷한가"를 계산하는 독립적인 지표다.
-    """
+
+def _max_age_band() -> Optional[int]:
+    """참고 데이터에 존재하는 최고 연령대 구간(예: 60)을 반환한다."""
     ref = _load_age_gender_reference()
     by_age_band = ref.get("by_age_band", {})
     if not by_age_band:
         return None
+    return max(int(key) for key in by_age_band)
+
+
+def compute_skin_age(
+    feature_scores: SkinFeatureScores, age: Optional[int] = None
+) -> Tuple[Optional[int], bool]:
+    """사용자의 feature_scores와 가장 가까운(유클리드 거리 최소) 연령대의 대표 나이를 구한다.
+
+    사용자가 실제 나이를 입력했는지 여부와 무관하게, "이 피부 특징이 어느
+    연령대 평균과 가장 비슷한가"를 계산하는 독립적인 지표다. 반환값은
+    (skin_age, reliable) 튜플이며, age가 주어진 경우에 한해 (1) skin_age와
+    age의 차이가 지나치게 크거나 (2) age가 참고 데이터의 최고 연령대 구간을
+    크게 벗어나면 reliable=False로 표시한다.
+    """
+    ref = _load_age_gender_reference()
+    by_age_band = ref.get("by_age_band", {})
+    if not by_age_band:
+        return None, True
 
     user_vec = {metric: getattr(feature_scores, metric) for metric in FEATURE_METRIC_PERCENTILES}
 
@@ -345,8 +336,19 @@ def compute_skin_age(feature_scores: SkinFeatureScores) -> Optional[int]:
             best_band = int(age_band_key)
 
     if best_band is None:
-        return None
-    return best_band + 5  # 구간 대표값(예: "20대" 구간 -> 25세)으로 근사
+        return None, True
+
+    skin_age = best_band + 5  # 구간 대표값(예: "20대" 구간 -> 25세)으로 근사
+
+    reliable = True
+    if age is not None:
+        if abs(skin_age - age) > SKIN_AGE_MAX_RELIABLE_DIFF:
+            reliable = False
+        max_band = _max_age_band()
+        if max_band is not None and age > max_band + 5 + SKIN_AGE_MAX_BAND_OVERAGE:
+            reliable = False
+
+    return skin_age, reliable
 
 
 def build_peer_comparison_note(
@@ -616,8 +618,6 @@ def _call_gemini(
 def analyze_skin_image(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
-    age: Optional[int] = None,
-    gender: Optional[str] = None,
 ) -> SkinAnalysisResult:
     """
     피부 사진을 Gemini Vision으로 분석한다.
@@ -628,9 +628,15 @@ def analyze_skin_image(
     ① AI Hub 질환 이미지 데이터셋과의 유사도, ② 한국인 피부상태 측정
     데이터의 실측값 두 가지 근거를 함께 프롬프트에 반영한다.
 
-    age(나이)가 주어지면 전체 인구 anchor 대신 동일 연령대(·성별) 그룹의
-    실측 분포를 anchor로 사용한다 (로드맵 G "동년배 비교"). 나이 미입력 시
-    기존과 동일하게 전체 인구 anchor를 사용한다(하위 호환).
+    feature_scores의 채점 anchor는 나이 입력 여부와 무관하게 항상 전체
+    인구 기준(POPULATION_REFERENCE)으로 고정한다. compute_skin_age()/
+    build_peer_comparison_note()가 이 feature_scores를 연령대별 실측
+    프로필과 비교하는 구조라, anchor를 연령대별로 바꿔버리면 두 함수가
+    서로 다른 좌표계를 같은 좌표계로 착각해 비교하게 되어 "나이를 입력하면
+    피부나이가 비정상적으로 낮게 나오는" 신뢰성 버그가 발생했었다
+    (docs/SKIN_AGE_RELIABILITY_SPEC.md 참고). "동년배 비교"는 이미
+    build_peer_comparison_note()가 별도로 담당하므로 anchor 자체를 바꿀
+    필요가 없다.
     """
     client = _build_client()
 
@@ -648,7 +654,7 @@ def analyze_skin_image(
 
     rag_evidence = "\n\n".join(part for part in [disease_evidence, measurement_evidence] if part)
 
-    population_reference = _build_dynamic_population_text(age, gender) or POPULATION_REFERENCE
+    population_reference = POPULATION_REFERENCE
     region_reference = _build_region_reference_text()
 
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(

@@ -71,10 +71,10 @@ def run_skin_analysis_agent(
     STEP 4의 Vision 분석 → Agent 판단 → (필요 시) 병원 검색 도구 호출까지
     이어지는 전체 파이프라인의 진입점.
 
-    age/gender는 선택 입력이며(로드맵 G), 입력 시 Gemini 프롬프트의 인구통계
-    anchor를 동일 연령대(·성별) 그룹으로 좁혀 사용한다.
+    age/gender는 선택 입력이며(로드맵 G), Gemini 채점 anchor에는 관여하지
+    않고 skin_age/peer_comparison_note 산출에만 사용된다.
     """
-    vision_result = analyze_skin_image(image_bytes, mime_type=mime_type, age=age, gender=gender)
+    vision_result = analyze_skin_image(image_bytes, mime_type=mime_type)
     needs_dermatologist = _decide_needs_dermatologist(vision_result)
 
     hospitals = []
@@ -87,9 +87,10 @@ def run_skin_analysis_agent(
     product_recommendations = recommend_products(vision_result)
 
     skin_age = None
+    skin_age_reliable = None
     peer_comparison_note = None
     if vision_result.image_quality_ok:
-        skin_age = compute_skin_age(vision_result.feature_scores)
+        skin_age, skin_age_reliable = compute_skin_age(vision_result.feature_scores, age=age)
         peer_comparison_note = build_peer_comparison_note(
             vision_result.feature_scores, age=age, gender=gender
         )
@@ -103,5 +104,6 @@ def run_skin_analysis_agent(
         age=age,
         gender=gender,
         skin_age=skin_age,
+        skin_age_reliable=skin_age_reliable,
         peer_comparison_note=peer_comparison_note,
     )

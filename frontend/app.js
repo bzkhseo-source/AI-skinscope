@@ -105,13 +105,34 @@ function updateMirrorPreview() {
   wrap.classList.toggle("mirror-preview", state.facingMode === "user");
 }
 
+function showCameraError(show) {
+  document.getElementById("cameraErrorOverlay").style.display = show ? "flex" : "none";
+}
+
+// 카메라 스트림이 살아있는지(트랙이 하나라도 "live" 상태인지) 확인한다.
+// 모바일 브라우저는 탭이 백그라운드로 밀려나면(외부 링크를 새 탭으로 열 때
+// 포함) 카메라 트랙을 강제로 "ended" 상태로 만드는 경우가 있는데, 이때
+// <video>는 마지막 프레임에서 멈춘 채로 남아 얼굴 자동 인식도 함께 멎는다.
+function isCameraStreamLive() {
+  return !!(state.stream && state.stream.getVideoTracks().some((track) => track.readyState === "live"));
+}
+
 function applyCameraStream(stream) {
   const video = document.getElementById("cameraVideo");
   state.stream = stream;
   video.srcObject = stream;
   document.getElementById("viewfinderWrap").classList.add("scanning");
   updateMirrorPreview();
+  showCameraError(false);
   startAutoCaptureLoop();
+
+  stream.getVideoTracks().forEach((track) => {
+    track.addEventListener("ended", () => {
+      if (state.consentGiven && !state.capturedBlob && isScanScreenActive()) {
+        recoverCamera();
+      }
+    });
+  });
 }
 
 async function startCamera() {
@@ -136,8 +157,21 @@ async function startCamera() {
       applyCameraStream(fallbackStream);
     } catch (err2) {
       console.warn("카메라 접근 완전히 실패, 갤러리 선택으로 대체합니다.", err2);
+      showCameraError(true);
     }
   }
+}
+
+// 카메라 트랙이 죽어있는 상태(탭 백그라운드 복귀, 권한 재확인 등)에서
+// 스트림을 정리하고 다시 시작한다. "확인" 버튼이나 브라우저 권한 응답에
+// 대해 페이지가 아무 반응도 하지 않는 문제를 해결하기 위한 명시적 재시도 경로.
+async function recoverCamera() {
+  stopCamera();
+  await startCamera();
+}
+
+function isScanScreenActive() {
+  return document.getElementById("screen-scan").classList.contains("active");
 }
 
 function stopCamera() {
@@ -632,7 +666,13 @@ function renderResult(result, thumbUrl) {
 
   const peerNoteEl = document.getElementById("aiPeerNoteText");
   const peerParts = [];
-  if (result.skin_age) peerParts.push(`피부나이 ${result.skin_age}세`);
+  if (result.skin_age) {
+    if (result.skin_age_reliable === false) {
+      peerParts.push("동년배 비교 데이터가 부족해 피부나이는 참고용으로만 제공돼요");
+    } else {
+      peerParts.push(`피부나이 ${result.skin_age}세`);
+    }
+  }
   if (result.peer_comparison_note) peerParts.push(result.peer_comparison_note);
   if (peerParts.length > 0) {
     peerNoteEl.textContent = peerParts.join(" · ");
@@ -947,6 +987,20 @@ function init() {
   });
   document.getElementById("retryFromResultBtn").addEventListener("click", resetCaptureUI);
   document.getElementById("shareResultBtn").addEventListener("click", shareResult);
+  document.getElementById("cameraRetryBtn").addEventListener("click", recoverCamera);
+
+  // 성분 검색 등으로 새 탭을 열었다가 돌아오는 경우, 모바일 브라우저가
+  // 백그라운드 탭의 카메라 트랙을 강제 종료해두는 경우가 있다. 탭이 다시
+  // 보이는 시점에 스캔 화면이면서 스트림이 죽어있으면 자동으로 복구한다.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (!state.consentGiven || state.capturedBlob) return;
+    if (!isScanScreenActive()) return;
+    if (!isCameraStreamLive()) {
+      recoverCamera();
+    }
+  });
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch((err) => {
       console.warn("서비스워커 등록 실패:", err);

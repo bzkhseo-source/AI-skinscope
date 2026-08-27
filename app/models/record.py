@@ -25,6 +25,7 @@ class SkinRecord(Base):
     age = Column(Integer, nullable=True)
     gender = Column(String(10), nullable=True)
     skin_age = Column(Integer, nullable=True)
+    skin_age_reliable = Column(Boolean, nullable=True)
 
     # FR-10: 사용자 피드백 (분석 직후 선택적으로 제출)
     satisfaction_rating = Column(Integer, nullable=True)

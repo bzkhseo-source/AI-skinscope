@@ -20,6 +20,7 @@ def _migrate_add_missing_columns() -> None:
         "age": "INTEGER",
         "gender": "VARCHAR(10)",
         "skin_age": "INTEGER",
+        "skin_age_reliable": "BOOLEAN",
     }
 
     with engine.begin() as conn:
