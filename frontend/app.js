@@ -19,7 +19,8 @@ const state = {
   consentGiven: false,
   currentRecordId: null,
   selectedRating: null,
-  facingMode: "environment", // "environment"=후면, "user"=전면
+  // 얼굴을 직접 촬영하는 셀프 스캔 앱이라 전면(셀카) 카메라를 기본값으로 시작한다.
+  facingMode: "user", // "environment"=후면, "user"=전면
   returnScreen: "screen-scan", // 결과 화면에서 "뒤로" 눌렀을 때 돌아갈 화면
 };
 
@@ -104,19 +105,38 @@ function updateMirrorPreview() {
   wrap.classList.toggle("mirror-preview", state.facingMode === "user");
 }
 
-async function startCamera() {
+function applyCameraStream(stream) {
   const video = document.getElementById("cameraVideo");
+  state.stream = stream;
+  video.srcObject = stream;
+  document.getElementById("viewfinderWrap").classList.add("scanning");
+  updateMirrorPreview();
+  startAutoCaptureLoop();
+}
+
+async function startCamera() {
   try {
-    state.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: state.facingMode },
+    // facingMode를 문자열로 그대로 넘기면 일부 안드로이드 브라우저에서
+    // "선호"가 아니라 엄격한 조건처럼 취급되어 후면 카메라로 대체되는
+    // 경우가 있었다. { ideal: ... } 형태로 명시하면 브라우저가 이를
+    // 확실히 "가능하면 이 방향"이라는 선호도로 해석해 전면 카메라를
+    // 더 안정적으로 골라준다.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: state.facingMode } },
       audio: false,
     });
-    video.srcObject = state.stream;
-    document.getElementById("viewfinderWrap").classList.add("scanning");
-    updateMirrorPreview();
-    startAutoCaptureLoop();
+    applyCameraStream(stream);
   } catch (err) {
-    console.warn("카메라 접근 실패, 갤러리 선택으로 대체합니다.", err);
+    console.warn("선호 방향 카메라 접근 실패, 기본 카메라로 재시도합니다.", err);
+    try {
+      const fallbackStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+      applyCameraStream(fallbackStream);
+    } catch (err2) {
+      console.warn("카메라 접근 완전히 실패, 갤러리 선택으로 대체합니다.", err2);
+    }
   }
 }
 
@@ -527,12 +547,16 @@ function renderResult(result, thumbUrl) {
   Object.entries(vision.feature_scores).forEach(([key, value]) => {
     const tier = featureScoreTier(value);
     const item = document.createElement("div");
-    item.className = "feature-item";
+    item.className = `feature-item ${tier.cls}`;
     item.innerHTML = `
-      <span class="label">${FEATURE_LABELS[key] || key}</span>
+      <div class="feature-item-head">
+        <span class="label">${FEATURE_LABELS[key] || key}</span>
+        <svg class="feature-item-icon" viewBox="0 0 40 20" aria-hidden="true">
+          <path d="M1 15 L10 9 L17 13 L26 4 L32 8 L39 2" />
+        </svg>
+      </div>
       <span class="num">${value}</span>
       <span class="badge ${tier.cls}">${tier.label}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${value}%"></div></div>
     `;
     grid.appendChild(item);
   });

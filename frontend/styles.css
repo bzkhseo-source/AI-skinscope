@@ -40,6 +40,8 @@ html, body {
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 body {
@@ -378,6 +380,8 @@ body {
 /* ---------- 뒤로가기 버튼 (헤더 우측 상단 고정) ---------- */
 .back-btn {
   display: none;
+  flex-shrink: 0;
+  white-space: nowrap;
   background: none;
   border: none;
   font-family: var(--font-mono);
@@ -389,15 +393,15 @@ body {
 
 .app-header.show-back .back-btn { display: block; }
 
-/* ---------- 결과 사진 썸네일 (게이지 카드 내부, 우상단 배치) ---------- */
+/* ---------- 결과 사진 썸네일 (게이지 카드 내부, 좌측 배치) ---------- */
 .result-thumb-mini {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: 92px;
+  height: 92px;
+  border-radius: var(--radius-card-sm);
   object-fit: cover;
   border: 2px solid var(--color-surface);
   box-shadow: var(--shadow-card);
-  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 /* ---------- 소개 페이지 ---------- */
@@ -464,41 +468,49 @@ body {
   background: var(--color-surface);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  padding: 24px;
+  padding: 20px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
 .gauge {
-  width: 156px;
-  height: 156px;
+  width: 116px;
+  height: 116px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   background: conic-gradient(var(--color-accent) calc(var(--pct, 0) * 1%), var(--color-line) 0);
+  flex-shrink: 0;
 }
 
 .gauge::before {
   content: '';
   position: absolute;
-  inset: 12px;
+  inset: 9px;
   border-radius: 50%;
   background: var(--color-surface);
 }
 
 .gauge .value {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.gauge .value .score-num {
   font-family: var(--font-mono);
-  font-size: 40px;
+  font-size: 24px;
   font-weight: 600;
 }
 
-.gauge .value small {
-  font-size: 14px;
+.gauge .value .score-num small {
+  font-size: 11px;
   color: var(--color-ink-soft);
 }
 
@@ -522,6 +534,20 @@ body {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-card-sm);
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feature-item.excellent { background: rgba(79, 122, 85, 0.10); border-color: transparent; }
+.feature-item.ok        { background: rgba(124, 154, 114, 0.10); border-color: transparent; }
+.feature-item.caution   { background: rgba(211, 144, 63, 0.10); border-color: transparent; }
+.feature-item.warn      { background: rgba(183, 91, 68, 0.10); border-color: transparent; }
+
+.feature-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .feature-item .label {
@@ -531,24 +557,24 @@ body {
   text-transform: uppercase;
 }
 
-.feature-item .bar-track {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-line);
-  margin-top: 8px;
-  overflow: hidden;
+.feature-item-icon {
+  width: 32px;
+  height: 16px;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.feature-item .bar-fill {
-  height: 100%;
-  background: var(--color-accent);
-}
+.feature-item.excellent .feature-item-icon { stroke: var(--color-excellent); }
+.feature-item.ok        .feature-item-icon { stroke: var(--color-sage); }
+.feature-item.caution   .feature-item-icon { stroke: var(--color-amber); }
+.feature-item.warn      .feature-item-icon { stroke: var(--color-brick); }
 
 .feature-item .num {
   font-family: var(--font-mono);
-  font-size: 16px;
-  margin-top: 4px;
-  display: block;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .section-card {
@@ -592,9 +618,21 @@ body {
 }
 
 .face-outline {
-  fill: var(--color-accent-soft);
-  stroke: var(--color-line);
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.face-feature {
+  fill: none;
+  stroke: var(--color-ink-soft);
   stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.face-feature-fill {
+  fill: var(--color-ink-soft);
 }
 
 .region-dot {

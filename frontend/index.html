@@ -100,9 +100,11 @@
       <div class="gauge-card">
         <img id="resultThumb" class="result-thumb-mini" alt="분석한 사진" />
         <div class="gauge" id="scoreGauge" style="--pct:0">
-          <div class="value"><span id="scoreValue">0</span><small>/100</small></div>
+          <div class="value">
+            <span class="badge ok" id="statusBadge">양호</span>
+            <div class="score-num"><span id="scoreValue">0</span><small>/100</small></div>
+          </div>
         </div>
-        <span class="badge ok" id="statusBadge">양호</span>
       </div>
 
       <div class="feature-grid" id="featureGrid"></div>
@@ -111,7 +113,16 @@
         <h3>부위별 분석</h3>
         <div class="face-diagram-wrap">
           <svg viewBox="0 0 200 240" class="face-diagram-svg" aria-hidden="true">
-            <ellipse cx="100" cy="120" rx="68" ry="94" class="face-outline"></ellipse>
+            <path class="face-outline" d="M100 18 C138 18 158 52 158 96 C158 150 136 200 100 214
+              C64 200 42 150 42 96 C42 52 62 18 100 18 Z"></path>
+            <path class="face-feature" d="M42 90 C30 88 28 108 40 112"></path>
+            <path class="face-feature" d="M158 90 C170 88 172 108 160 112"></path>
+            <path class="face-feature" d="M66 84 C74 78 86 78 94 84"></path>
+            <path class="face-feature" d="M106 84 C114 78 126 78 134 84"></path>
+            <ellipse class="face-feature-fill" cx="80" cy="96" rx="7" ry="4"></ellipse>
+            <ellipse class="face-feature-fill" cx="120" cy="96" rx="7" ry="4"></ellipse>
+            <path class="face-feature" d="M98 100 C96 116 92 128 88 134 C92 138 100 138 104 134"></path>
+            <path class="face-feature" d="M80 156 C90 164 110 164 120 156"></path>
             <circle id="dot-forehead" cx="100" cy="52" r="11" class="region-dot"></circle>
             <circle id="dot-nose" cx="100" cy="128" r="11" class="region-dot"></circle>
             <circle id="dot-cheek_l" cx="52" cy="128" r="11" class="region-dot"></circle>
@@ -160,9 +171,9 @@
       <div class="section-card">
         <h3>이 결과는 어떻게 만들어졌나요?</h3>
         <p style="font-size:12px; line-height:1.6; color:var(--color-ink-soft); margin:0;">
-          본 분석 결과는 AI Hub의 공인 피부 데이터셋(면안부 질환 이미지 12,000장 및
-          한국인 실측 데이터)을 바탕으로 Gemini Vision이 도출한 <strong>참고용
-          스크리닝 자료</strong>입니다. 정확한 의학적 진단은 반드시 피부과 전문의와
+          본 분석 결과는 AI Hub의 피부 관련 데이터베이스(안면부 질환 이미지 12,000장 및
+          한국인 실측 데이터)을 바탕으로 Vision AI를 통해 생성된 <strong>참고용
+          스크리닝 자료</strong>입니다. </br> 정확한 의학적 진단은 반드시 피부과 전문의와
           상담하시기 바랍니다.
         </p>
       </div>

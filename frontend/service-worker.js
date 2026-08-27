@@ -2,7 +2,7 @@
 // 개발 중 파일이 자주 바뀌므로, 항상 최신 파일을 먼저 시도하고
 // 오프라인일 때만 캐시로 대체한다. CACHE_NAME을 바꿔서 이전 버전
 // (skinscope-v1)의 낡은 캐시를 강제로 폐기한다.
-const CACHE_NAME = "skinscope-v2";
+const CACHE_NAME = "skinscope-v3";
 const PRECACHE_URLS = ["index.html", "styles.css", "app.js", "manifest.json"];
 
 self.addEventListener("install", (event) => {
