@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -24,6 +24,18 @@ class SkinFeatureScores(BaseModel):
 class SkinAnalysisResult(BaseModel):
     """Gemini Vision 분석 결과 전체"""
 
+    image_quality_ok: bool = Field(
+        ...,
+        description=(
+            "사진에서 피부/얼굴 영역을 충분히 인식하여 분석했는지 여부. "
+            "흐릿함, 과도한 어둠, 가림, 피부와 무관한 사진 등으로 분석이 "
+            "어려운 경우 false로 설정한다."
+        ),
+    )
+    quality_note: Optional[str] = Field(
+        default=None,
+        description="image_quality_ok가 false일 때, 어떤 문제인지 간단히 설명 (예: '얼굴이 인식되지 않았습니다').",
+    )
     overall_score: int = Field(..., ge=0, le=100, description="종합 피부 건강 점수")
     feature_scores: SkinFeatureScores
     suspected_patterns: List[SuspectedPattern] = Field(default_factory=list)

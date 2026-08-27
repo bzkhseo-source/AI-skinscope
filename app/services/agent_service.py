@@ -17,6 +17,8 @@ DISCLAIMER = "본 결과는 AI 참고용 스크리닝이며 의료 진단이 아
 
 def _decide_needs_dermatologist(vision: SkinAnalysisResult) -> bool:
     """Gemini의 판단과 Agent의 규칙 기반 안전장치를 결합해 최종 결정한다."""
+    if not vision.image_quality_ok:
+        return False  # 사진 인식 실패 케이스는 병원 방문 권장 대상이 아님
     if vision.needs_dermatologist:
         return True
     if vision.overall_score < OVERALL_SCORE_SAFETY_THRESHOLD:
@@ -25,6 +27,13 @@ def _decide_needs_dermatologist(vision: SkinAnalysisResult) -> bool:
 
 
 def _build_recommendation_message(vision: SkinAnalysisResult, needs_dermatologist: bool) -> str:
+    if not vision.image_quality_ok:
+        reason = vision.quality_note or "사진에서 피부 상태를 충분히 인식하지 못했습니다."
+        return (
+            f"{DISCLAIMER} {reason} 밝은 곳에서 얼굴/피부 부위가 선명하게 "
+            "보이도록 다시 촬영해 주세요."
+        )
+
     parts = [DISCLAIMER, vision.ai_summary]
 
     if needs_dermatologist:

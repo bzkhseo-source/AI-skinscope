@@ -2,8 +2,13 @@
 // AI-SkinScope — 프론트엔드 로직
 // ============================================================
 
-// 배포된 Render 백엔드 URL
-const API_BASE = "https://ai-skinscope.onrender.com";
+// 로컬(127.0.0.1, localhost)에서는 로컬 백엔드를, 그 외(배포된 도메인)에서는
+// Render 배포 백엔드를 자동으로 사용한다. 앞으로 API_BASE를 수동으로
+// 바꿨다 되돌렸다 할 필요가 없다.
+const API_BASE =
+  location.hostname === "127.0.0.1" || location.hostname === "localhost"
+    ? "http://127.0.0.1:8000"
+    : "https://ai-skinscope.onrender.com";
 
 const state = {
   stream: null,
@@ -248,7 +253,7 @@ function renderResult(result, thumbUrl) {
   state.currentRecordId = result.record_id || null;
   resetFeedbackUI();
 
-  // 상단 요약 카드
+  // 상단 요약 카드 (사진 썸네일은 품질 실패 시에도 그대로 보여준다)
   const resultThumb = document.getElementById("resultThumb");
   if (thumbUrl) {
     resultThumb.src = thumbUrl;
@@ -256,6 +261,28 @@ function renderResult(result, thumbUrl) {
   } else {
     resultThumb.style.display = "none";
   }
+
+  const qualityCard = document.getElementById("qualityIssueCard");
+  const reportEl = document.getElementById("resultReport");
+
+  if (!vision.image_quality_ok) {
+    // 사진 인식 실패: 오해를 부르는 0점 표시 대신 재촬영 안내로 전환
+    document.getElementById("summaryScoreValue").textContent = "-";
+    const summaryBadge = document.getElementById("summaryStatusBadge");
+    summaryBadge.textContent = "재촬영 필요";
+    summaryBadge.className = "badge warn";
+
+    document.getElementById("qualityIssueText").textContent =
+      vision.quality_note || "사진에서 피부 상태를 충분히 인식하지 못했습니다.";
+    qualityCard.style.display = "block";
+    reportEl.style.display = "none";
+
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+    document.getElementById("screen-result").classList.add("active");
+    return;
+  }
+
+  qualityCard.style.display = "none";
   document.getElementById("summaryScoreValue").textContent = vision.overall_score;
 
   const summaryBadge = document.getElementById("summaryStatusBadge");
@@ -511,7 +538,6 @@ function init() {
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);
   document.getElementById("cameraSwitchBtn").addEventListener("click", switchCamera);
-
   document.getElementById("fileTriggerBtn").addEventListener("click", () => {
     document.getElementById("fileInput").click();
   });
@@ -533,7 +559,7 @@ function init() {
       resetCaptureUI();
     }
   });
-
+  document.getElementById("retryFromResultBtn").addEventListener("click", resetCaptureUI);
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch((err) => {
       console.warn("서비스워커 등록 실패:", err);

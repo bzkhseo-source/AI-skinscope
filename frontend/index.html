@@ -6,6 +6,7 @@
 <title>AI-SkinScope</title>
 <meta name="description" content="AI 피부 상태 스크리닝 & 코칭 (참고용, 의료 진단 아님)" />
 <link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
 <meta name="theme-color" content="#1F5C56" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -81,8 +82,13 @@
       </div>
     </div>
 
-    <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
+    <div id="qualityIssueCard" class="section-card" style="display:none">
+      <h3>사진을 다시 촬영해주세요</h3>
+      <p id="qualityIssueText" style="font-size:13px; line-height:1.6; margin:0 0 12px;"></p>
+      <button class="btn-primary" id="retryFromResultBtn" style="width:100%">다시 촬영하기</button>
+    </div>
 
+    <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
       <div class="gauge-card">
         <div class="gauge" id="scoreGauge" style="--pct:0">
           <div class="value"><span id="scoreValue">0</span><small>/100</small></div>
@@ -162,7 +168,7 @@
     <div class="about-card">
       <h3>SkinScope의 분석 방식</h3>
       <p>
-        AI-SkinScope는 Google Gemini Vision의 멀티모달 이미지 분석과
+        AI-SkinScope는 Gemini Vision의 멀티모달 이미지 분석과</br>
         AI Hub 공인 데이터셋을 결합한 스크리닝 로직으로 동작합니다.
       </p>
     </div>
@@ -170,9 +176,9 @@
     <div class="about-card">
       <h3>기반 데이터</h3>
       <p>
-        안면부 피부질환 이미지 <strong>12,000장</strong> 규모와 한국인 피부상태
-        실측 데이터 <strong>13,936명</strong> 규모의 AI Hub 공인 데이터셋을
-        기반으로 분석 로직을 설계했습니다.
+        <strong>12,000장</strong>의 안면부 피부질환 이미지와 </br>
+        <strong>13,936명</strong>의 한국인 피부상태 실측 데이터를</br>
+        AI Hub 공인 데이터를 기반으로 분석 로직을 설계했습니다.
       </p>
       <ul>
         <li>이 중 <strong>800건</strong>(질환 사례 500 + 실측 인물 300)을

@@ -1,4 +1,8 @@
-const CACHE_NAME = "skinscope-v1";
+// v2: 캐시 우선(cache-first) → 네트워크 우선(network-first)으로 변경.
+// 개발 중 파일이 자주 바뀌므로, 항상 최신 파일을 먼저 시도하고
+// 오프라인일 때만 캐시로 대체한다. CACHE_NAME을 바꿔서 이전 버전
+// (skinscope-v1)의 낡은 캐시를 강제로 폐기한다.
+const CACHE_NAME = "skinscope-v2";
 const PRECACHE_URLS = ["index.html", "styles.css", "app.js", "manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -25,7 +29,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // 네트워크 우선: 최신 파일을 먼저 시도하고, 실패(오프라인)할 때만 캐시 사용.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        const cloned = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
