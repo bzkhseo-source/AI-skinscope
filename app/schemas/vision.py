@@ -21,6 +21,33 @@ class SkinFeatureScores(BaseModel):
     redness: int = Field(..., ge=0, le=100, description="붉은기/염증 점수")
 
 
+class RegionScore(BaseModel):
+    """얼굴 한 부위(이마/코/볼/턱)에 대한 세부 점수. 모든 점수는 높을수록 양호함을 의미한다."""
+
+    pore: int = Field(..., ge=0, le=100, description="이 부위의 모공 상태 점수")
+    oiliness: int = Field(..., ge=0, le=100, description="이 부위의 유분/피지 상태 점수 (유분이 적을수록 높은 점수)")
+    trouble: int = Field(
+        ..., ge=0, le=100, description="이 부위의 트러블(여드름/뾰루지) 상태 점수 (트러블이 적을수록 높은 점수)"
+    )
+    note: str = Field(..., description="이 부위에 대한 한 줄 관찰 소견")
+
+
+class RegionalScores(BaseModel):
+    """얼굴을 이마/코(T존)/양볼/턱 5개 구역으로 나눈 세부 분석 결과"""
+
+    forehead: RegionScore = Field(..., description="이마")
+    nose: RegionScore = Field(
+        ...,
+        description=(
+            "코(T존). 이 부위는 참고 데이터셋에 장비 실측치가 없으므로 "
+            "사진에서 관찰되는 시각적 특징만으로 판단한다."
+        ),
+    )
+    cheek_l: RegionScore = Field(..., description="왼쪽 볼 (사진 기준 왼쪽)")
+    cheek_r: RegionScore = Field(..., description="오른쪽 볼 (사진 기준 오른쪽)")
+    chin: RegionScore = Field(..., description="턱")
+
+
 class SkinAnalysisResult(BaseModel):
     """Gemini Vision 분석 결과 전체"""
 
@@ -57,4 +84,8 @@ class SkinAnalysisResult(BaseModel):
             "구조화된 AI 소견 ②: ai_focus로 판단한 시각적 근거를 1~2문장으로 "
             "설명 (예: '다른 항목에 비해 모공이 두드러지게 관찰됩니다')."
         ),
+    )
+    regional_scores: Optional[RegionalScores] = Field(
+        default=None,
+        description="이마/코(T존)/왼쪽볼/오른쪽볼/턱 5개 구역별 세부 분석 (모공/유분/트러블)",
     )

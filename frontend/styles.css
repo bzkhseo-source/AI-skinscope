@@ -3,28 +3,31 @@
    컨셉: "피부 스캔 리포트" — 뷰파인더로 들여다보고 랩 리포트를 받는 경험
    ========================================================================== */
 :root {
-  /* Color */
-  --color-bg: #FBF6F3;
+  /* Color — Modern Organic & Skincare */
+  --color-bg: #FBF3EA;           /* Warm Soft White */
   --color-surface: #FFFFFF;
-  --color-ink: #2A2321;
-  --color-ink-soft: #6B615D;
-  --color-line: #E6DDD7;
-  --color-accent: #1F5C56;
-  --color-accent-soft: #E4EEEC;
-  --color-rose: #D8A398;
-  --color-amber: #C97A3D;
-  --color-brick: #A6483B;
-  --color-sage: #6B8F71;
+  --color-surface-warm: #FDF1E7; /* Warm Beige — feature/ingredient 카드용 */
+  --color-ink: #3A2B22;
+  --color-ink-soft: #8C7C71;
+  --color-line: #EFE0D2;
+  --color-accent: #C97A5D;       /* Muted Coral */
+  --color-accent-soft: #F7E4D9;
+  --color-rose: #E3B7A8;
+  --color-amber: #D3903F;
+  --color-brick: #B75B44;
+  --color-sage: #7C9A72;
+  --color-excellent: #4F7A55;    /* 매우 양호 (4단계 상태 태그용) */
 
   /* Type */
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Inter', -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
 
-  /* Layout */
-  --radius-card: 18px;
+  /* Layout — 부드러운 라운딩 + 그림자 */
+  --radius-card: 26px;
+  --radius-card-sm: 16px;
   --radius-pill: 999px;
-  --shadow-card: 0 12px 32px -18px rgba(42, 35, 33, 0.35);
+  --shadow-card: 0 18px 40px -22px rgba(58, 43, 30, 0.18);
   --max-width: 480px;
 }
 
@@ -57,9 +60,13 @@ body {
 
 /* ---------- 상단 헤더 ---------- */
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg);
   padding: 20px 20px 14px;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--color-line);
 }
@@ -176,6 +183,50 @@ body {
 
 .screen.active { display: flex; }
 
+/* ---------- 나이/성별 입력 (선택) ---------- */
+.profile-input-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  padding: 14px 16px;
+}
+
+.profile-input-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.profile-input-hint {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  margin: 4px 0 10px;
+  line-height: 1.5;
+}
+
+.profile-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.profile-input-row input,
+.profile-input-row select {
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.profile-input-row input {
+  width: 90px;
+}
+
+.profile-input-row select {
+  flex: 1;
+}
+
 /* ---------- 뷰파인더 (촬영 화면 시그니처 요소) ---------- */
 .viewfinder-wrap {
   position: relative;
@@ -218,6 +269,13 @@ body {
   border: 2px dashed rgba(255, 255, 255, 0.75);
   border-radius: 50%;
   pointer-events: none;
+  transition: border-color 0.2s ease;
+}
+
+/* 얼굴 자동 감지(로드맵 C)로 가이드 안에 잘 들어왔다고 판단되면
+   타원을 실선 초록색으로 바꿔 곧 자동 촬영된다는 것을 알려준다. */
+.viewfinder-wrap.face-aligned .face-guide-oval {
+  border: 3px solid var(--color-sage);
 }
 
 .viewfinder-wrap.hide-guide .face-guide-oval,
@@ -317,9 +375,9 @@ body {
 
 .camera-switch-btn:disabled { opacity: 0.4; }
 
-/* ---------- 뒤로가기 버튼 ---------- */
+/* ---------- 뒤로가기 버튼 (헤더 우측 상단 고정) ---------- */
 .back-btn {
-  align-self: flex-start;
+  display: none;
   background: none;
   border: none;
   font-family: var(--font-mono);
@@ -329,35 +387,18 @@ body {
   padding: 0;
 }
 
-/* ---------- 결과 요약 카드 (촬영 사진 + 핵심 요약) ---------- */
-.result-summary-card {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  background: var(--color-surface);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-  padding: 14px;
-}
+.app-header.show-back .back-btn { display: block; }
 
-.result-thumb {
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
+/* ---------- 결과 사진 썸네일 (게이지 카드 내부, 우상단 배치) ---------- */
+.result-thumb-mini {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   object-fit: cover;
-  flex-shrink: 0;
-  background: var(--color-line);
+  border: 2px solid var(--color-surface);
+  box-shadow: var(--shadow-card);
+  align-self: flex-start;
 }
-
-.result-summary-text { display: flex; flex-direction: column; gap: 4px; }
-
-.result-summary-score {
-  font-family: var(--font-mono);
-  font-size: 26px;
-  font-weight: 600;
-}
-
-.result-summary-score small { font-size: 13px; color: var(--color-ink-soft); }
 
 /* ---------- 소개 페이지 ---------- */
 .about-card {
@@ -479,7 +520,7 @@ body {
 .feature-item {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
-  border-radius: 12px;
+  border-radius: var(--radius-card-sm);
   padding: 12px;
 }
 
@@ -533,8 +574,63 @@ body {
   border-radius: var(--radius-pill);
 }
 
-.badge.ok { background: rgba(107, 143, 113, 0.15); color: var(--color-sage); }
-.badge.warn { background: rgba(166, 72, 59, 0.12); color: var(--color-brick); }
+.badge.excellent { background: rgba(79, 122, 85, 0.15); color: var(--color-excellent); }
+.badge.ok { background: rgba(124, 154, 114, 0.15); color: var(--color-sage); }
+.badge.warn { background: rgba(183, 91, 68, 0.12); color: var(--color-brick); }
+.badge.caution { background: rgba(211, 144, 63, 0.15); color: var(--color-amber); }
+
+/* ---------- 부위별 분석 (얼굴 다이어그램) ---------- */
+.face-diagram-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.face-diagram-svg {
+  width: 140px;
+  height: 168px;
+}
+
+.face-outline {
+  fill: var(--color-accent-soft);
+  stroke: var(--color-line);
+  stroke-width: 2;
+}
+
+.region-dot {
+  stroke: var(--color-surface);
+  stroke-width: 2;
+  fill: var(--color-line);
+}
+
+.region-dot.ok { fill: var(--color-sage); }
+.region-dot.caution { fill: var(--color-amber); }
+.region-dot.warn { fill: var(--color-brick); }
+
+.region-item {
+  border-top: 1px solid var(--color-line);
+  padding: 10px 0;
+}
+
+.region-item:first-child { border-top: none; padding-top: 0; }
+
+.region-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.region-item .region-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.region-item .region-note {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  margin-top: 4px;
+  line-height: 1.5;
+}
 
 .hospital-item {
   border-top: 1px solid var(--color-line);
@@ -598,6 +694,14 @@ body {
   margin: 0;
 }
 
+.ai-peer-note {
+  font-size: 12px;
+  color: var(--color-accent);
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-line);
+}
+
 /* ---------- 결과 요약 배지 (상단 압축 고지) ---------- */
 .disclaimer-compact {
   font-family: var(--font-mono);
@@ -605,11 +709,16 @@ body {
   color: var(--color-ink-soft);
 }
 
-/* ---------- 추천 성분 ---------- */
+/* ---------- 추천 성분 (고민 카테고리별 박스 구분) ---------- */
+.ingredient-group {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card-sm);
+  background: var(--color-surface-warm);
+  padding: 14px;
+}
+
 .ingredient-group + .ingredient-group {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-line);
+  margin-top: 12px;
 }
 
 .ingredient-group-title {
@@ -621,7 +730,8 @@ body {
 .ingredient-item {
   display: block;
   border: 1px solid var(--color-line);
-  border-radius: 12px;
+  border-radius: var(--radius-card-sm);
+  background: var(--color-surface);
   padding: 10px 12px;
   margin-bottom: 8px;
   text-decoration: none;
@@ -649,12 +759,15 @@ body {
   white-space: nowrap;
 }
 
-.ingredient-item .ingredient-efficacy {
+.ingredient-efficacy-list {
+  margin: 6px 0 0;
+  padding-left: 16px;
   font-size: 12px;
   color: var(--color-ink-soft);
-  margin-top: 4px;
   line-height: 1.5;
 }
+
+.ingredient-efficacy-list li { margin-bottom: 2px; }
 
 /* ---------- 피드백 ---------- */
 .rating-row {
@@ -741,7 +854,7 @@ body {
   justify-content: space-between;
   background: var(--color-surface);
   border: 1px solid var(--color-line);
-  border-radius: 14px;
+  border-radius: var(--radius-card-sm);
   padding: 12px 14px;
 }
 

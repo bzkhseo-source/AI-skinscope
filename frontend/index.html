@@ -7,7 +7,7 @@
 <meta name="description" content="AI 피부 상태 스크리닝 & 코칭 (참고용, 의료 진단 아님)" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
-<meta name="theme-color" content="#1F5C56" />
+<meta name="theme-color" content="#C97A5D" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css" />
@@ -20,6 +20,7 @@
       <div class="logo">AI-<span>SkinScope</span></div>
       <div class="tagline">Reference Screening, Not Diagnosis</div>
     </div>
+    <button class="back-btn" id="resultBackBtn">← 뒤로</button>
   </header>
 
   <div class="user-id-bar">
@@ -42,6 +43,19 @@
         <input type="checkbox" id="consentCheckbox" />
         <span>위 내용에 동의하고 촬영을 시작합니다</span>
       </label>
+    </div>
+
+    <div class="profile-input-card" id="profileInputCard">
+      <div class="profile-input-title">나이·성별 (선택)</div>
+      <p class="profile-input-hint">입력하면 동년배 평균과 비교한 분석과 피부나이를 함께 받을 수 있어요.</p>
+      <div class="profile-input-row">
+        <input type="number" id="ageInput" placeholder="나이" min="1" max="120" aria-label="나이" />
+        <select id="genderSelect" aria-label="성별">
+          <option value="">선택 안 함</option>
+          <option value="female">여성</option>
+          <option value="male">남성</option>
+        </select>
+      </div>
     </div>
 
     <div class="viewfinder-wrap" id="viewfinderWrap">
@@ -75,16 +89,6 @@
 
   <!-- ============ 화면 2: 결과 (촬영/이력 상세에서 진입) ============ -->
   <section id="screen-result" class="screen">
-    <button class="back-btn" id="resultBackBtn">← 뒤로</button>
-
-    <div class="result-summary-card">
-      <img id="resultThumb" class="result-thumb" alt="분석한 사진" />
-      <div class="result-summary-text">
-        <div class="report-eyebrow">Scan Result</div>
-        <div class="result-summary-score"><span id="summaryScoreValue">0</span><small>/100</small></div>
-        <span class="badge ok" id="summaryStatusBadge">양호</span>
-      </div>
-    </div>
 
     <div id="qualityIssueCard" class="section-card" style="display:none">
       <h3>사진을 다시 촬영해주세요</h3>
@@ -94,27 +98,43 @@
 
     <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
       <div class="gauge-card">
+        <img id="resultThumb" class="result-thumb-mini" alt="분석한 사진" />
         <div class="gauge" id="scoreGauge" style="--pct:0">
           <div class="value"><span id="scoreValue">0</span><small>/100</small></div>
         </div>
         <span class="badge ok" id="statusBadge">양호</span>
-        <div class="disclaimer-compact">AI 참고용 스크리닝 · 의료 진단 아님</div>
       </div>
 
       <div class="feature-grid" id="featureGrid"></div>
 
+      <div class="section-card" id="regionalCard" style="display:none">
+        <h3>부위별 분석</h3>
+        <div class="face-diagram-wrap">
+          <svg viewBox="0 0 200 240" class="face-diagram-svg" aria-hidden="true">
+            <ellipse cx="100" cy="120" rx="68" ry="94" class="face-outline"></ellipse>
+            <circle id="dot-forehead" cx="100" cy="52" r="11" class="region-dot"></circle>
+            <circle id="dot-nose" cx="100" cy="128" r="11" class="region-dot"></circle>
+            <circle id="dot-cheek_l" cx="52" cy="128" r="11" class="region-dot"></circle>
+            <circle id="dot-cheek_r" cx="148" cy="128" r="11" class="region-dot"></circle>
+            <circle id="dot-chin" cx="100" cy="196" r="11" class="region-dot"></circle>
+          </svg>
+        </div>
+        <div id="regionalList"></div>
+      </div>
+
       <div class="section-card" id="patternsCard">
-        <h3>참고 패턴 안내</h3>
+        <h3>SKIN 패턴 분석</h3>
         <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
-          아래는 사진에서 관찰된 시각적 특징과 유사한 참고 패턴입니다.
+          SKIN 이미지 분석에서 관찰된 패턴 결과입니다.
         </p>
         <div id="patternsList"></div>
       </div>
 
       <div class="section-card">
-        <h3>AI 소견</h3>
+        <h3>스캐닝 소견</h3>
         <p class="ai-focus" id="aiFocusText" style="display:none"></p>
         <p class="ai-detail" id="aiDetailText"></p>
+        <p class="ai-peer-note" id="aiPeerNoteText" style="display:none"></p>
       </div>
 
       <div class="section-card" id="careTipsCard">
@@ -125,9 +145,7 @@
       <div class="section-card" id="productRecoCard" style="display:none">
         <h3>추천 성분</h3>
         <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
-          AI Hub 스킨케어 성분-효능 데이터를 근거로 한 참고용 추천이며,
-          특정 제품을 판매하거나 연동하지 않습니다. 구매 전 전성분표와
-          본인의 피부 반응을 꼭 확인하세요.
+          스킨케어 성분-효능 데이터를 근거로 한 추천 성분으로 본인 피부 반응을 꼭 확인하세요.
         </p>
         <div id="productRecoList"></div>
       </div>
@@ -142,10 +160,10 @@
       <div class="section-card">
         <h3>이 결과는 어떻게 만들어졌나요?</h3>
         <p style="font-size:12px; line-height:1.6; color:var(--color-ink-soft); margin:0;">
-          본 결과는 AI Hub 공인 데이터셋(안면부 피부질환 이미지 12,000장 +
-          한국인 피부상태 실측 데이터 1,072명)을 근거로 Gemini Vision이
-          분석한 <strong>참고용 스크리닝</strong>이며, 의료 진단이 아닙니다.
-          정확한 진단은 피부과 전문의와 상담하세요.
+          본 분석 결과는 AI Hub의 공인 피부 데이터셋(면안부 질환 이미지 12,000장 및
+          한국인 실측 데이터)을 바탕으로 Gemini Vision이 도출한 <strong>참고용
+          스크리닝 자료</strong>입니다. 정확한 의학적 진단은 반드시 피부과 전문의와
+          상담하시기 바랍니다.
         </p>
       </div>
 
@@ -192,7 +210,7 @@
     <div class="about-card">
       <h3>SkinScope의 분석 방식</h3>
       <p>
-        AI-SkinScope는 Gemini Vision의 멀티모달 이미지 분석과</br>
+        AI-SkinScope는 AI의 멀티모달 이미지 분석과</br>
         AI Hub 공인 데이터셋을 결합한 스크리닝 로직으로 동작합니다.
       </p>
     </div>
@@ -206,21 +224,24 @@
       </p>
       <ul>
         <li>이 중 <strong>800건</strong>(질환 사례 500 + 실측 인물 300)을
-          임베딩(gemini-embedding-2)하여 실시간 근접 사례 검색(RAG)에 활용</li>
+          임베딩하여 실시간 근접 사례 검색(RAG)에 활용</li>
         <li><strong>1,072명 전수 실측 데이터</strong>를 분석해 산출한 인구 백분위를
           점수화 기준값으로 활용</li>
+        <li><strong>스킨케어 성분-효능 데이터 9,000건</strong>을 정밀분석해 고민
+          유형별 맞춤 성분 추천의 근거로 활용</li>
       </ul>
     </div>
 
     <div class="about-card">
       <h3>분석 3단계</h3>
       <ol>
-        <li><strong>특징 추출</strong> — Gemini Vision이 사진에서 모공·탄력·수분·주름·
-          색소침착·붉은기 등 시각적 특징을 분석</li>
-        <li><strong>근접 사례 비교</strong> — 사진 임베딩과 가장 유사한 실제 질환
-          사례·실측 인물 데이터를 검색해 근거로 반영</li>
-        <li><strong>종합 판단</strong> — AI Agent가 점수를 산출하고, 심각도에 따라
-          전문의 상담 필요 여부와 근처 병원 정보를 안내</li>
+        <li><strong>이미지 분석</strong> — AI가 사진에서 모공·탄력·수분·주름·
+          색소침착·붉은기 등 시각적 특징을 다각도로 분석합니다.</li>
+        <li><strong>실측 데이터 대조</strong> — 분석 결과와 가장 유사한 실제
+          질환 사례·실측 인물 데이터를 검색해 신뢰할 근거로 반영합니다.</li>
+        <li><strong>맞춤 솔루션 도출</strong> — 스킨케어 성분-효능 데이터를
+          분석해 가장 취약한 부위에 맞는 관리 팁과 추천 성분을 제시하고,
+          심각도가 높으면 전문의 상담과 근처 병원 정보를 함께 안내합니다.</li>
       </ol>
     </div>
 

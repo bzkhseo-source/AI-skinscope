@@ -12,6 +12,7 @@ from app.services.memory_service import save_feedback, save_record
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_GENDERS = {"female", "male"}
 
 
 @router.post("", response_model=AgentResult)
@@ -20,6 +21,12 @@ async def analyze_skin(
     user_id: str = Form(..., description="사용자 식별자 (이력 저장용)"),
     latitude: Optional[float] = Form(default=None, description="사용자 위도 (병원 검색용)"),
     longitude: Optional[float] = Form(default=None, description="사용자 경도 (병원 검색용)"),
+    age: Optional[int] = Form(
+        default=None, description="사용자 나이 (선택 입력, 동년배 비교/피부나이 산출용)"
+    ),
+    gender: Optional[str] = Form(
+        default=None, description="사용자 성별 'female'/'male' (선택 입력)"
+    ),
     db: Session = Depends(get_db),
 ) -> AgentResult:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
@@ -27,6 +34,10 @@ async def analyze_skin(
             status_code=400,
             detail=f"지원하지 않는 이미지 형식입니다: {file.content_type}",
         )
+    if age is not None and not (1 <= age <= 120):
+        raise HTTPException(status_code=400, detail="나이는 1~120 사이여야 합니다.")
+    if gender is not None and gender not in ALLOWED_GENDERS:
+        raise HTTPException(status_code=400, detail="gender는 'female' 또는 'male'만 가능합니다.")
 
     image_bytes = await file.read()
     if not image_bytes:
@@ -38,6 +49,8 @@ async def analyze_skin(
             mime_type=file.content_type,
             latitude=latitude,
             longitude=longitude,
+            age=age,
+            gender=gender,
         )
     except RuntimeError as exc:
         # Gemini 모든 모델 호출 실패(쿼터 초과 등)

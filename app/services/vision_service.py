@@ -2,13 +2,13 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from google import genai
 from google.genai import types
 
 from app.core.config import settings
-from app.schemas.vision import SkinAnalysisResult
+from app.schemas.vision import SkinAnalysisResult, SkinFeatureScores
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,20 @@ REFERENCE_EMBEDDINGS_PATH = (
 REFERENCE_MEASUREMENTS_PATH = (
     Path(__file__).resolve().parent.parent / "data" / "reference_measurements.json"
 )
+AGE_GENDER_REFERENCE_PATH = (
+    Path(__file__).resolve().parent.parent / "data" / "age_gender_reference.json"
+)
+REGION_REFERENCE_PATH = (
+    Path(__file__).resolve().parent.parent / "data" / "region_reference.json"
+)
 EMBEDDING_MODEL = "gemini-embedding-2"
 EMBEDDING_DIM = 768
 RAG_TOP_K = 5
 
 _reference_cache: List[dict] | None = None
 _measurement_cache: List[dict] | None = None
+_age_gender_reference_cache: Optional[dict] = None
+_region_reference_cache: Optional[dict] = None
 
 # STEP 4에서 measurement_data.csv(n=1,072) 전수 분석으로 산출한 백분위.
 # (하위5%, 하위25%, 중앙값, 상위25%, 상위5%) 순서. RAG로 찾은 근접 사례의
@@ -33,6 +41,33 @@ ELASTICITY_PERCENTILES = (33, 42, 49, 57, 72)
 WRINKLE_PERCENTILES = (14.0, 17.6, 21.0, 25.0, 32.5)  # 값이 낮을수록 좋음
 PIGMENTATION_PERCENTILES = (57, 112, 157, 207, 266)  # 값이 낮을수록 좋음
 PORE_PERCENTILES = (235, 548, 873, 1205, 1715)  # 값이 낮을수록 좋음
+
+# 연령대별 anchor/피부나이 계산에서 SkinFeatureScores 필드 <-> 실측 지표 매핑.
+# redness(붉은기)는 measurement_data.csv에 대응하는 장비 실측치가 없어 제외한다.
+FEATURE_METRIC_PERCENTILES = {
+    "moisture": (MOISTURE_PERCENTILES, True),
+    "elasticity": (ELASTICITY_PERCENTILES, True),
+    "wrinkle": (WRINKLE_PERCENTILES, False),
+    "pigmentation": (PIGMENTATION_PERCENTILES, False),
+    "pore": (PORE_PERCENTILES, False),
+}
+FEATURE_METRIC_LABELS_KO = {
+    "moisture": "수분",
+    "elasticity": "탄력",
+    "wrinkle": "주름(눈가 거칠기)",
+    "pigmentation": "색소침착(반점 개수)",
+    "pore": "모공(개수)",
+}
+GENDER_LABEL_KO = {"female": "여성", "male": "남성"}
+
+REGION_LABELS_KO = {
+    "forehead": "이마",
+    "nose": "코(T존)",
+    "cheek_l": "왼쪽 볼",
+    "cheek_r": "오른쪽 볼",
+    "chin": "턱",
+}
+REGION_METRIC_LABELS_KO = {"moisture": "수분", "elasticity": "탄력", "pore": "모공(개수)"}
 
 # AI Hub "안면부 피부질환 이미지 합성 데이터"(dataSetSn=71863)의
 # diagnosis_info.desc 필드 원문을 그대로 사용한 few-shot 판단 기준.
@@ -86,6 +121,8 @@ SYSTEM_PROMPT_TEMPLATE = """당신은 피부 상태를 참고용으로 스크리
 
 {rag_evidence}
 
+{region_reference}
+
 가장 먼저, 사진에서 피부/얼굴 영역을 분석 가능한 수준으로 인식할 수 있는지
 판단하라. 이 판단은 **관대하게** 하라 — 약간 어둡거나, 실내 조명이거나,
 화질이 다소 낮아도 얼굴/피부 형태와 특징을 알아볼 수 있으면 true로 유지하라.
@@ -121,6 +158,14 @@ image_quality_ok가 true인 경우, ai_focus와 ai_detail을 반드시 채워라
   (예: "다른 항목에 비해 모공이 두드러지고 T존 유분이 많아 보입니다").
 - ai_summary에는 기존과 동일하게 전체 소견을 자유 문장으로 작성하되,
   ai_focus/ai_detail의 내용과 크게 모순되지 않도록 하라.
+
+image_quality_ok가 true인 경우, regional_scores도 반드시 채워라. 얼굴을
+이마(forehead)/코(nose, T존)/왼쪽볼(cheek_l)/오른쪽볼(cheek_r)/턱(chin)
+5개 구역으로 나누어, 각 구역마다 pore(모공)/oiliness(유분)/trouble(트러블)
+3개 점수(0~100, 높을수록 양호)와 note(한 줄 소견)를 채워라. 사진에 일부
+구역이 잘 보이지 않으면(예: 앞머리에 이마가 가려짐) 보이는 범위 내에서
+최선으로 추정하고 note에 그 사실을 언급하라. image_quality_ok가 false인
+경우 regional_scores는 채우지 마라(생략).
 
 반드시 아래 JSON 스키마와 정확히 일치하는 JSON만 응답하라. 다른 텍스트를
 포함하지 마라.
@@ -165,6 +210,242 @@ def _load_measurement_reference() -> List[dict]:
     _measurement_cache = data
     logger.info("실측값 RAG 참고 인덱스 로드 완료: %d건", len(data))
     return _measurement_cache
+
+
+def _load_age_gender_reference() -> dict:
+    """연령대×성별 백분위 참고 데이터를 최초 1회만 로드해 캐시한다.
+
+    scripts/build_age_gender_reference.py가 AI Hub 한국인 피부상태 측정
+    데이터의 meta_data.csv(나이·성별) + measurement_data.csv(실측값)를
+    조인해 전수 분석으로 만든 결과다.
+    """
+    global _age_gender_reference_cache
+    if _age_gender_reference_cache is not None:
+        return _age_gender_reference_cache
+
+    if not AGE_GENDER_REFERENCE_PATH.exists():
+        logger.warning(
+            "연령대별 참고 데이터 파일이 없습니다 (%s). 전체 인구 anchor로 대체합니다.",
+            AGE_GENDER_REFERENCE_PATH,
+        )
+        _age_gender_reference_cache = {}
+        return _age_gender_reference_cache
+
+    _age_gender_reference_cache = json.loads(
+        AGE_GENDER_REFERENCE_PATH.read_text(encoding="utf-8")
+    )
+    return _age_gender_reference_cache
+
+
+def _select_age_gender_group(
+    age: Optional[int], gender: Optional[str]
+) -> Tuple[Optional[dict], Optional[str]]:
+    """나이·성별에 맞는 참고 그룹을 고른다.
+
+    연령대+성별 그룹이 있고 표본이 충분하면 그것을, 아니면 연령대 그룹,
+    그것도 부족하면 전체 인구로 순서대로 대체(fallback)한다.
+    """
+    ref = _load_age_gender_reference()
+    if not ref or age is None:
+        return None, None
+
+    min_size = ref.get("min_group_size", 15)
+    age_band = min(max((age // 10) * 10, 10), 60)
+
+    if gender in GENDER_LABEL_KO:
+        group = ref.get("by_age_gender", {}).get(f"{age_band}_{gender}")
+        if group and group["count"] >= min_size:
+            return group, f"{age_band}대 {GENDER_LABEL_KO[gender]}"
+
+    group = ref.get("by_age_band", {}).get(str(age_band))
+    if group and group["count"] >= min_size:
+        return group, f"{age_band}대"
+
+    overall = ref.get("overall")
+    if overall:
+        return overall, "전체"
+    return None, None
+
+
+def _build_dynamic_population_text(age: Optional[int], gender: Optional[str]) -> Optional[str]:
+    """사용자가 나이를 입력한 경우, 전체 인구 대신 동일 연령대(±성별) anchor 텍스트를 만든다."""
+    group, label = _select_age_gender_group(age, gender)
+    if not group or not label:
+        return None
+
+    lines = []
+    for metric, kor_label in FEATURE_METRIC_LABELS_KO.items():
+        stats = group.get(metric)
+        if not stats:
+            continue
+        lines.append(
+            f"- {kor_label}: {label} 평균(중앙값) {stats['p50']}, "
+            f"하위5% {stats['p5']}, 상위5% {stats['p95']}"
+        )
+    if not lines:
+        return None
+    body = "\n".join(lines)
+
+    return f"""아래는 국내 {label} {group['count']}명의 정밀 피부 측정 장비 실측 분포(AI Hub
+한국인 피부상태 측정 데이터 기준, 사용자와 동일한 연령대{"·성별" if "여성" in label or "남성" in label else ""}
+그룹)이다. 사진에서 장비 수치를 직접 측정할 수는 없지만, 아래 분포를 "이 연령대에서
+무엇이 평균이고 무엇이 심한 축에 속하는지" 판단하는 기준점(anchor)으로 삼아 0~100
+점수를 매겨라. 점수 50 = 이 그룹 중앙값 수준, 점수 90 이상 = 이 그룹 상위 5% 우수
+수준, 점수 10 이하 = 이 그룹 하위 5% 열악한 수준을 의미하도록 보정하라.
+
+{body}
+- 붉은기(redness): 이 데이터셋에는 별도 장비 측정치가 없으므로, 사진에서 관찰되는
+  홍반·모세혈관 확장·염증 정도를 기준으로 임상적으로 판단하라."""
+
+
+def _age_band_score_profile(age_band_key: str) -> Optional[dict]:
+    """특정 연령대 그룹의 중앙값을, 전체 인구 백분위 기준 0~100 점수로 환산한다.
+
+    피부나이 계산 시 사용자의 feature_scores(이미 0~100 스케일)와 같은
+    스케일에서 비교하기 위해 필요하다.
+    """
+    ref = _load_age_gender_reference()
+    group = ref.get("by_age_band", {}).get(age_band_key)
+    if not group:
+        return None
+
+    profile = {}
+    for metric, (percentiles, higher_is_better) in FEATURE_METRIC_PERCENTILES.items():
+        stats = group.get(metric)
+        if not stats:
+            return None
+        profile[metric] = _interp_score(stats["p50"], percentiles, higher_is_better)
+    return profile
+
+
+def compute_skin_age(feature_scores: SkinFeatureScores) -> Optional[int]:
+    """사용자의 feature_scores와 가장 가까운(유클리드 거리 최소) 연령대의 대표 나이를 구한다.
+
+    사용자가 실제 나이를 입력했는지 여부와 무관하게, "이 피부 특징이 어느
+    연령대 평균과 가장 비슷한가"를 계산하는 독립적인 지표다.
+    """
+    ref = _load_age_gender_reference()
+    by_age_band = ref.get("by_age_band", {})
+    if not by_age_band:
+        return None
+
+    user_vec = {metric: getattr(feature_scores, metric) for metric in FEATURE_METRIC_PERCENTILES}
+
+    best_band: Optional[int] = None
+    best_distance: Optional[float] = None
+    for age_band_key in by_age_band:
+        profile = _age_band_score_profile(age_band_key)
+        if profile is None:
+            continue
+        distance = math.sqrt(
+            sum((user_vec[metric] - profile[metric]) ** 2 for metric in FEATURE_METRIC_PERCENTILES)
+        )
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_band = int(age_band_key)
+
+    if best_band is None:
+        return None
+    return best_band + 5  # 구간 대표값(예: "20대" 구간 -> 25세)으로 근사
+
+
+def build_peer_comparison_note(
+    feature_scores: SkinFeatureScores, age: Optional[int], gender: Optional[str]
+) -> Optional[str]:
+    """동년배(±성별) 그룹과 비교했을 때 가장 두드러진 차이를 한 문장으로 만든다.
+
+    Gemini를 다시 호출하지 않고, 이미 계산된 feature_scores와 사전 집계된
+    연령대 그룹 통계만으로 결정론적으로 생성한다.
+    """
+    if age is None:
+        return None
+
+    group, label = _select_age_gender_group(age, gender)
+    if not group or not label:
+        return None
+
+    diffs = []
+    for metric, (percentiles, higher_is_better) in FEATURE_METRIC_PERCENTILES.items():
+        stats = group.get(metric)
+        if not stats:
+            continue
+        group_score = _interp_score(stats["p50"], percentiles, higher_is_better)
+        user_score = getattr(feature_scores, metric)
+        diffs.append((metric, user_score - group_score))
+
+    if not diffs:
+        return None
+
+    diffs.sort(key=lambda item: item[1])
+    worst_metric, worst_diff = diffs[0]
+    best_metric, best_diff = diffs[-1]
+
+    if worst_diff <= -8:
+        return f"{label} 평균과 비교했을 때 {FEATURE_METRIC_LABELS_KO[worst_metric]}이(가) 다소 낮은 편입니다."
+    if best_diff >= 8:
+        return f"{label} 평균과 비교했을 때 {FEATURE_METRIC_LABELS_KO[best_metric]}이(가) 우수한 편입니다."
+    return f"{label} 평균과 전반적으로 비슷한 수준입니다."
+
+
+def _load_region_reference() -> dict:
+    """부위별(이마/왼쪽볼/오른쪽볼/턱) 실측 백분위 참고 데이터를 최초 1회만 로드해 캐시한다."""
+    global _region_reference_cache
+    if _region_reference_cache is not None:
+        return _region_reference_cache
+
+    if not REGION_REFERENCE_PATH.exists():
+        logger.warning(
+            "부위별 참고 데이터 파일이 없습니다 (%s). anchor 없이 진행합니다.",
+            REGION_REFERENCE_PATH,
+        )
+        _region_reference_cache = {}
+        return _region_reference_cache
+
+    _region_reference_cache = json.loads(REGION_REFERENCE_PATH.read_text(encoding="utf-8"))
+    return _region_reference_cache
+
+
+def _build_region_reference_text() -> str:
+    """5개 구역별 세부 분석(로드맵 H)을 위한 참고 텍스트를 만든다.
+
+    이마/왼쪽볼/오른쪽볼/턱은 실측 데이터 기반 anchor를 제공하고, 코(T존)는
+    이 데이터셋에 대응하는 장비 실측치가 없어(스마트폰 라벨 facepart 2/7번
+    슬롯이 전 피험자에서 비어 있음을 확인) 시각적 판단만 사용하도록 명시한다.
+    """
+    ref = _load_region_reference()
+    regions = ref.get("regions", {})
+    if not regions:
+        return (
+            "부위별(이마/코/왼쪽볼/오른쪽볼/턱) 참고 실측 데이터가 없으므로, "
+            "regional_scores의 모든 항목은 사진에서 관찰되는 시각적 특징만으로 판단하라."
+        )
+
+    lines = []
+    for region_key, region_label in REGION_LABELS_KO.items():
+        stats = regions.get(region_key)
+        if not stats:
+            lines.append(f"- {region_label}: 장비 실측 데이터 없음 (시각적 판단만 사용)")
+            continue
+        metric_parts = []
+        for metric, metric_label in REGION_METRIC_LABELS_KO.items():
+            metric_stats = stats.get(metric)
+            if not metric_stats:
+                continue
+            metric_parts.append(
+                f"{metric_label} 평균 {metric_stats['p50']}(하위5% {metric_stats['p5']}~"
+                f"상위5% {metric_stats['p95']})"
+            )
+        lines.append(f"- {region_label}: " + ", ".join(metric_parts))
+
+    body = "\n".join(lines)
+    return f"""아래는 국내 1,072명의 부위별 정밀 피부 측정 장비 실측 분포(AI Hub 한국인
+피부상태 측정 데이터 기준)다. regional_scores의 각 부위를 평가할 때, 실측치가
+있는 부위는 아래 분포를 "무엇이 평균이고 무엇이 심한 축에 속하는지" 판단하는
+참고 기준점으로 삼아라. 다만 이 데이터셋에는 유분(oiliness)·트러블(trouble)에
+대한 장비 실측치가 전혀 없으므로, pore를 제외한 oiliness/trouble 점수는 모든
+부위에서 사진의 시각적 특징(피지 반짝임, 뾰루지/블랙헤드 등)만으로 판단하라.
+
+{body}"""
 
 
 def _interp_score(
@@ -332,7 +613,12 @@ def _call_gemini(
     return response.text
 
 
-def analyze_skin_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> SkinAnalysisResult:
+def analyze_skin_image(
+    image_bytes: bytes,
+    mime_type: str = "image/jpeg",
+    age: Optional[int] = None,
+    gender: Optional[str] = None,
+) -> SkinAnalysisResult:
     """
     피부 사진을 Gemini Vision으로 분석한다.
     기본 모델(gemini-3.6-flash) 호출 실패(쿼터 초과 등) 시
@@ -341,6 +627,10 @@ def analyze_skin_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> Ski
     RAG: 사용자 사진 임베딩(gemini-embedding-2)을 한 번 계산해
     ① AI Hub 질환 이미지 데이터셋과의 유사도, ② 한국인 피부상태 측정
     데이터의 실측값 두 가지 근거를 함께 프롬프트에 반영한다.
+
+    age(나이)가 주어지면 전체 인구 anchor 대신 동일 연령대(·성별) 그룹의
+    실측 분포를 anchor로 사용한다 (로드맵 G "동년배 비교"). 나이 미입력 시
+    기존과 동일하게 전체 인구 anchor를 사용한다(하위 호환).
     """
     client = _build_client()
 
@@ -358,10 +648,14 @@ def analyze_skin_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> Ski
 
     rag_evidence = "\n\n".join(part for part in [disease_evidence, measurement_evidence] if part)
 
+    population_reference = _build_dynamic_population_text(age, gender) or POPULATION_REFERENCE
+    region_reference = _build_region_reference_text()
+
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
         disease_reference=DISEASE_REFERENCE,
-        population_reference=POPULATION_REFERENCE,
+        population_reference=population_reference,
         rag_evidence=rag_evidence,
+        region_reference=region_reference,
     )
 
     models_to_try = [settings.gemini_primary_model, settings.gemini_fallback_model]

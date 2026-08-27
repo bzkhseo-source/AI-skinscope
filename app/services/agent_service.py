@@ -5,7 +5,11 @@ from app.schemas.agent import AgentResult
 from app.schemas.vision import SkinAnalysisResult
 from app.services.ingredient_service import recommend_products
 from app.services.kakao_service import search_nearby_dermatology_clinics
-from app.services.vision_service import analyze_skin_image
+from app.services.vision_service import (
+    analyze_skin_image,
+    build_peer_comparison_note,
+    compute_skin_age,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +64,17 @@ def run_skin_analysis_agent(
     mime_type: str = "image/jpeg",
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
+    age: Optional[int] = None,
+    gender: Optional[str] = None,
 ) -> AgentResult:
     """
     STEP 4의 Vision 분석 → Agent 판단 → (필요 시) 병원 검색 도구 호출까지
     이어지는 전체 파이프라인의 진입점.
+
+    age/gender는 선택 입력이며(로드맵 G), 입력 시 Gemini 프롬프트의 인구통계
+    anchor를 동일 연령대(·성별) 그룹으로 좁혀 사용한다.
     """
-    vision_result = analyze_skin_image(image_bytes, mime_type=mime_type)
+    vision_result = analyze_skin_image(image_bytes, mime_type=mime_type, age=age, gender=gender)
     needs_dermatologist = _decide_needs_dermatologist(vision_result)
 
     hospitals = []
@@ -77,10 +86,22 @@ def run_skin_analysis_agent(
     recommendation_message = _build_recommendation_message(vision_result, needs_dermatologist)
     product_recommendations = recommend_products(vision_result)
 
+    skin_age = None
+    peer_comparison_note = None
+    if vision_result.image_quality_ok:
+        skin_age = compute_skin_age(vision_result.feature_scores)
+        peer_comparison_note = build_peer_comparison_note(
+            vision_result.feature_scores, age=age, gender=gender
+        )
+
     return AgentResult(
         vision=vision_result,
         needs_dermatologist=needs_dermatologist,
         recommendation_message=recommendation_message,
         hospitals=hospitals,
         product_recommendations=product_recommendations,
+        age=age,
+        gender=gender,
+        skin_age=skin_age,
+        peer_comparison_note=peer_comparison_note,
     )

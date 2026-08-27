@@ -49,3 +49,15 @@ class AgentResult(BaseModel):
         default_factory=list,
         description="가장 관리가 필요한 고민 항목 기준으로 뽑은 성분 추천 (검색 링크 포함)",
     )
+    age: Optional[int] = Field(default=None, description="사용자가 입력한 나이 (선택 입력)")
+    gender: Optional[str] = Field(
+        default=None, description="사용자가 입력한 성별 ('female'/'male', 선택 입력)"
+    )
+    skin_age: Optional[int] = Field(
+        default=None,
+        description="feature_scores와 가장 가까운 연령대 그룹을 기준으로 산출한 피부나이",
+    )
+    peer_comparison_note: Optional[str] = Field(
+        default=None,
+        description="나이를 입력한 경우, 동일 연령대(·성별) 그룹과 비교한 한 줄 코멘트",
+    )

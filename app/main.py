@@ -1,11 +1,36 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 
 from app.models.database import Base, engine
 from app.models import record  # noqa: F401 - 테이블 등록을 위해 임포트 필요
 from app.routers import analyze, history
 
 Base.metadata.create_all(bind=engine)
+
+
+def _migrate_add_missing_columns() -> None:
+    """Base.metadata.create_all()은 새 테이블만 만들 뿐, 이미 존재하는 테이블에
+    새로 추가된 컬럼(age/gender/skin_age 등)은 반영하지 않는다. Alembic 없이
+    가볍게, 없는 컬럼만 ALTER TABLE로 추가한다 (SQLite/PostgreSQL 둘 다 지원)."""
+    inspector = inspect(engine)
+    existing_columns = {col["name"] for col in inspector.get_columns("skin_records")}
+
+    columns_to_add = {
+        "age": "INTEGER",
+        "gender": "VARCHAR(10)",
+        "skin_age": "INTEGER",
+    }
+
+    with engine.begin() as conn:
+        for column_name, column_type in columns_to_add.items():
+            if column_name not in existing_columns:
+                conn.execute(
+                    text(f"ALTER TABLE skin_records ADD COLUMN {column_name} {column_type}")
+                )
+
+
+_migrate_add_missing_columns()
 
 app = FastAPI(
     title="AI-SkinScope",

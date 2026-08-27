@@ -2,13 +2,16 @@
 // AI-SkinScope — 프론트엔드 로직
 // ============================================================
 
-// 로컬(127.0.0.1, localhost)에서는 로컬 백엔드를, 그 외(배포된 도메인)에서는
-// Render 배포 백엔드를 자동으로 사용한다. 앞으로 API_BASE를 수동으로
-// 바꿨다 되돌렸다 할 필요가 없다.
-const API_BASE =
-  location.hostname === "127.0.0.1" || location.hostname === "localhost"
-    ? "http://127.0.0.1:8000"
-    : "https://ai-skinscope.onrender.com";
+// 로컬(127.0.0.1, localhost) 또는 같은 Wi-Fi의 사설 LAN IP(예: 192.168.x.x,
+// 휴대폰으로 개발 PC에 접속해 테스트할 때)에서는 같은 호스트의 로컬 백엔드를,
+// 그 외(배포된 도메인)에서는 Render 배포 백엔드를 자동으로 사용한다.
+// 프로토콜도 현재 페이지와 동일하게 맞춘다(HTTPS로 접속했다면 백엔드도 HTTPS).
+const LOCAL_HOSTNAME_PATTERN =
+  /^(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/;
+
+const API_BASE = LOCAL_HOSTNAME_PATTERN.test(location.hostname)
+  ? `${location.protocol}//${location.hostname}:8000`
+  : "https://ai-skinscope.onrender.com";
 
 const state = {
   stream: null,
@@ -38,6 +41,8 @@ function showScreen(targetId) {
   document.querySelectorAll(".tab-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.target === targetId);
   });
+
+  document.querySelector(".app-header").classList.toggle("show-back", targetId === "screen-result");
 }
 
 // ---------------- 탭 전환 ----------------
@@ -109,6 +114,7 @@ async function startCamera() {
     video.srcObject = state.stream;
     document.getElementById("viewfinderWrap").classList.add("scanning");
     updateMirrorPreview();
+    startAutoCaptureLoop();
   } catch (err) {
     console.warn("카메라 접근 실패, 갤러리 선택으로 대체합니다.", err);
   }
@@ -120,6 +126,7 @@ function stopCamera() {
     state.stream = null;
   }
   document.getElementById("viewfinderWrap").classList.remove("scanning");
+  stopAutoCaptureLoop();
 }
 
 async function switchCamera() {
@@ -170,6 +177,147 @@ function onPhotoCaptured(blob) {
   document.getElementById("retakeBtn").style.display = "block";
 }
 
+// ---------------- 얼굴 자동 감지 + 조건 충족 시 자동 촬영 (로드맵 C) ----------------
+// 브라우저 내장 Shape Detection API(FaceDetector)는 지원 브라우저가 매우
+// 제한적이므로, 없으면 MediaPipe Tasks Vision(CDN, 번들러 불필요)을 폴백으로
+// 로드한다. 둘 다 실패하면 조용히 기존 수동 셔터 버튼으로 대체된다
+// (progressive enhancement — 자동 촬영은 있으면 좋은 기능일 뿐 필수가 아니다).
+const AUTO_CAPTURE_CHECK_INTERVAL_MS = 250;
+const AUTO_CAPTURE_HOLD_MS = 1000; // 정위치 상태가 이만큼 지속되면 자동 촬영
+const AUTO_CAPTURE_MIN_FACE_RATIO = 0.35; // 가이드 타원 면적 대비 얼굴 박스 최소 비율
+const MEDIAPIPE_VISION_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+const MEDIAPIPE_WASM_URL =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MEDIAPIPE_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
+
+let faceDetectorHandle = null; // 내장 FaceDetector 또는 MediaPipe FaceDetector 인스턴스
+let faceDetectionMode = null; // "native" | "mediapipe" | null(미지원 -> 수동 촬영만)
+let faceDetectionInitPromise = null;
+let autoCaptureTimer = null;
+let faceInPositionSince = null;
+
+async function initFaceDetection() {
+  if (faceDetectionInitPromise) return faceDetectionInitPromise;
+
+  faceDetectionInitPromise = (async () => {
+    if ("FaceDetector" in window) {
+      try {
+        faceDetectorHandle = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+        faceDetectionMode = "native";
+        console.info("얼굴 자동 감지: 브라우저 내장 FaceDetector 사용");
+        return;
+      } catch (err) {
+        console.warn("내장 FaceDetector 초기화 실패, MediaPipe로 대체합니다.", err);
+      }
+    }
+
+    try {
+      const vision = await import(MEDIAPIPE_VISION_URL);
+      const filesetResolver = await vision.FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+      faceDetectorHandle = await vision.FaceDetector.createFromOptions(filesetResolver, {
+        baseOptions: { modelAssetPath: MEDIAPIPE_MODEL_URL },
+        runningMode: "VIDEO",
+      });
+      faceDetectionMode = "mediapipe";
+      console.info("얼굴 자동 감지: MediaPipe FaceDetector 사용");
+    } catch (err) {
+      console.warn("얼굴 자동 감지를 사용할 수 없어 수동 촬영으로만 동작합니다.", err);
+      faceDetectionMode = null;
+    }
+  })();
+
+  return faceDetectionInitPromise;
+}
+
+async function detectFaceBoxes(video) {
+  if (faceDetectionMode === "native") {
+    const faces = await faceDetectorHandle.detect(video);
+    return faces.map((f) => f.boundingBox);
+  }
+  if (faceDetectionMode === "mediapipe") {
+    const result = faceDetectorHandle.detectForVideo(video, performance.now());
+    return (result.detections || []).map((d) => ({
+      x: d.boundingBox.originX,
+      y: d.boundingBox.originY,
+      width: d.boundingBox.width,
+      height: d.boundingBox.height,
+    }));
+  }
+  return [];
+}
+
+// 뷰파인더 타원 가이드(중앙, 폭 62%, 세로 3:4 비율)와 얼굴 박스가
+// 충분히 겹치는지 대략적으로 판단한다. 정확한 픽셀 단위 겹침 계산 대신,
+// 크기 비율과 중심 거리로 "대충 타원 안에 맞게 들어왔는지"만 확인한다.
+function isFaceWellPositioned(box, video) {
+  const videoW = video.videoWidth;
+  const videoH = video.videoHeight;
+  if (!videoW || !videoH || !box.width || !box.height) return false;
+
+  const guideW = videoW * 0.62;
+  const guideH = guideW * (4 / 3);
+  const guideCenterX = videoW / 2;
+  const guideCenterY = videoH * 0.44;
+
+  const faceRatio = (box.width * box.height) / (guideW * guideH);
+  const faceCenterX = box.x + box.width / 2;
+  const faceCenterY = box.y + box.height / 2;
+  const centeredX = Math.abs(faceCenterX - guideCenterX) < guideW * 0.35;
+  const centeredY = Math.abs(faceCenterY - guideCenterY) < guideH * 0.35;
+
+  return faceRatio >= AUTO_CAPTURE_MIN_FACE_RATIO && centeredX && centeredY;
+}
+
+function setFaceAlignedIndicator(aligned) {
+  document.getElementById("viewfinderWrap").classList.toggle("face-aligned", aligned);
+}
+
+function startAutoCaptureLoop() {
+  stopAutoCaptureLoop();
+
+  initFaceDetection().then(() => {
+    if (!faceDetectionMode || !state.stream) return; // 미지원 환경: 수동 셔터만 사용
+
+    autoCaptureTimer = setInterval(async () => {
+      if (state.capturedBlob || !state.stream) return;
+      const video = document.getElementById("cameraVideo");
+      try {
+        const boxes = await detectFaceBoxes(video);
+        const wellPositioned = boxes.length > 0 && isFaceWellPositioned(boxes[0], video);
+        setFaceAlignedIndicator(wellPositioned);
+
+        if (wellPositioned) {
+          if (faceInPositionSince === null) faceInPositionSince = Date.now();
+          if (Date.now() - faceInPositionSince >= AUTO_CAPTURE_HOLD_MS) {
+            faceInPositionSince = null;
+            // capturePhotoFromVideo()의 canvas.toBlob()이 비동기라 state.capturedBlob이
+            // 뒤늦게 설정되므로, 그 사이 인터벌이 한 번 더 돌아 중복 촬영되지 않도록
+            // 타이머부터 즉시 멈춘다.
+            stopAutoCaptureLoop();
+            capturePhotoFromVideo();
+          }
+        } else {
+          faceInPositionSince = null;
+        }
+      } catch (err) {
+        console.warn("얼굴 감지 중 오류가 발생해 자동 촬영을 중단합니다.", err);
+        stopAutoCaptureLoop();
+      }
+    }, AUTO_CAPTURE_CHECK_INTERVAL_MS);
+  });
+}
+
+function stopAutoCaptureLoop() {
+  if (autoCaptureTimer) {
+    clearInterval(autoCaptureTimer);
+    autoCaptureTimer = null;
+  }
+  faceInPositionSince = null;
+  setFaceAlignedIndicator(false);
+}
+
 function resetCaptureUI() {
   state.capturedBlob = null;
   const video = document.getElementById("cameraVideo");
@@ -190,6 +338,39 @@ function resetCaptureUI() {
 
   showScreen("screen-scan");
   if (state.consentGiven) startCamera();
+}
+
+// ---------------- 나이/성별 입력 (선택, 로컬 기억) ----------------
+const AGE_STORAGE_KEY = "skinscope_age";
+const GENDER_STORAGE_KEY = "skinscope_gender";
+
+function initProfileInputs() {
+  const ageInput = document.getElementById("ageInput");
+  const genderSelect = document.getElementById("genderSelect");
+
+  const savedAge = localStorage.getItem(AGE_STORAGE_KEY);
+  const savedGender = localStorage.getItem(GENDER_STORAGE_KEY);
+  if (savedAge) ageInput.value = savedAge;
+  if (savedGender) genderSelect.value = savedGender;
+
+  ageInput.addEventListener("change", () => {
+    if (ageInput.value) localStorage.setItem(AGE_STORAGE_KEY, ageInput.value);
+    else localStorage.removeItem(AGE_STORAGE_KEY);
+  });
+  genderSelect.addEventListener("change", () => {
+    if (genderSelect.value) localStorage.setItem(GENDER_STORAGE_KEY, genderSelect.value);
+    else localStorage.removeItem(GENDER_STORAGE_KEY);
+  });
+}
+
+function getAgeGenderInput() {
+  const ageValue = document.getElementById("ageInput").value.trim();
+  const genderValue = document.getElementById("genderSelect").value;
+  const age = ageValue ? Number(ageValue) : null;
+  return {
+    age: age && age >= 1 && age <= 120 ? age : null,
+    gender: genderValue || null,
+  };
 }
 
 // ---------------- 위치 정보 (선택) ----------------
@@ -224,6 +405,9 @@ async function submitAnalysis() {
       formData.append("latitude", String(location.lat));
       formData.append("longitude", String(location.lng));
     }
+    const { age, gender } = getAgeGenderInput();
+    if (age) formData.append("age", String(age));
+    if (gender) formData.append("gender", gender);
 
     const response = await fetch(`${API_BASE}/analyze`, {
       method: "POST",
@@ -257,6 +441,41 @@ const FEATURE_LABELS = {
   redness: "붉은기",
 };
 
+const REGION_LABELS = {
+  forehead: "이마",
+  nose: "코(T존)",
+  cheek_l: "왼쪽 볼",
+  cheek_r: "오른쪽 볼",
+  chin: "턱",
+};
+const REGION_ORDER = ["forehead", "nose", "cheek_l", "cheek_r", "chin"];
+
+function regionScoreTier(score) {
+  if (score >= 70) return "ok";
+  if (score >= 40) return "caution";
+  return "warn";
+}
+
+// feature-grid(모공/탄력/수분/주름/색소침착/붉은기)용 4단계 상태 태그.
+function featureScoreTier(score) {
+  if (score >= 80) return { cls: "excellent", label: "매우 양호" };
+  if (score >= 60) return { cls: "ok", label: "양호" };
+  if (score >= 40) return { cls: "caution", label: "주의" };
+  return { cls: "warn", label: "관리 필요" };
+}
+
+// 성분 효능 원문(완전한 문장)을 개조식 불릿으로 쪼갠다. 문장 끝
+// (마침표/물음표/느낌표 다음 공백, 줄바꿈)을 기준으로 나누고 빈 조각을
+// 버린 뒤 최대 maxLines개로 자른다.
+function splitEfficacyToBullets(text, maxLines) {
+  if (!text) return [];
+  return text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, maxLines);
+}
+
 function renderResult(result, thumbUrl) {
   const vision = result.vision;
   state.currentRecordId = result.record_id || null;
@@ -264,7 +483,7 @@ function renderResult(result, thumbUrl) {
   state.currentNeedsDermatologist = result.needs_dermatologist;
   resetFeedbackUI();
 
-  // 상단 요약 카드 (사진 썸네일은 품질 실패 시에도 그대로 보여준다)
+  // 게이지 카드 안의 사진 썸네일 (품질 실패 시에는 resultReport 자체가 숨겨진다)
   const resultThumb = document.getElementById("resultThumb");
   if (thumbUrl) {
     resultThumb.src = thumbUrl;
@@ -278,11 +497,6 @@ function renderResult(result, thumbUrl) {
 
   if (!vision.image_quality_ok) {
     // 사진 인식 실패: 오해를 부르는 0점 표시 대신 재촬영 안내로 전환
-    document.getElementById("summaryScoreValue").textContent = "-";
-    const summaryBadge = document.getElementById("summaryStatusBadge");
-    summaryBadge.textContent = "재촬영 필요";
-    summaryBadge.className = "badge warn";
-
     document.getElementById("qualityIssueText").textContent =
       vision.quality_note || "사진에서 피부 상태를 충분히 인식하지 못했습니다.";
     qualityCard.style.display = "block";
@@ -290,22 +504,17 @@ function renderResult(result, thumbUrl) {
 
     document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
     document.getElementById("screen-result").classList.add("active");
+    document.querySelector(".app-header").classList.add("show-back");
     return;
   }
 
   qualityCard.style.display = "none";
-  document.getElementById("summaryScoreValue").textContent = vision.overall_score;
 
-  const summaryBadge = document.getElementById("summaryStatusBadge");
   const badge = document.getElementById("statusBadge");
   if (result.needs_dermatologist) {
-    summaryBadge.textContent = "전문의 상담 권장";
-    summaryBadge.className = "badge warn";
     badge.textContent = "전문의 상담 권장";
     badge.className = "badge warn";
   } else {
-    summaryBadge.textContent = "양호";
-    summaryBadge.className = "badge ok";
     badge.textContent = "양호";
     badge.className = "badge ok";
   }
@@ -316,15 +525,54 @@ function renderResult(result, thumbUrl) {
   const grid = document.getElementById("featureGrid");
   grid.innerHTML = "";
   Object.entries(vision.feature_scores).forEach(([key, value]) => {
+    const tier = featureScoreTier(value);
     const item = document.createElement("div");
     item.className = "feature-item";
     item.innerHTML = `
       <span class="label">${FEATURE_LABELS[key] || key}</span>
       <span class="num">${value}</span>
+      <span class="badge ${tier.cls}">${tier.label}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${value}%"></div></div>
     `;
     grid.appendChild(item);
   });
+
+  const regionalCard = document.getElementById("regionalCard");
+  const regionalList = document.getElementById("regionalList");
+  regionalList.innerHTML = "";
+  // 다이어그램 점(dot)은 화면에 계속 남아있는 요소이므로, 이전 결과의 색이
+  // 남지 않도록 매번 기본 상태로 되돌린 뒤 새로 칠한다.
+  REGION_ORDER.forEach((key) => {
+    const dot = document.getElementById(`dot-${key}`);
+    if (dot) dot.setAttribute("class", "region-dot");
+  });
+
+  if (vision.regional_scores) {
+    regionalCard.style.display = "block";
+    REGION_ORDER.forEach((key) => {
+      const region = vision.regional_scores[key];
+      if (!region) return;
+
+      const composite = Math.round((region.pore + region.oiliness + region.trouble) / 3);
+      const tier = regionScoreTier(composite);
+
+      const dot = document.getElementById(`dot-${key}`);
+      if (dot) dot.setAttribute("class", `region-dot ${tier}`);
+
+      const row = document.createElement("div");
+      row.className = "region-item";
+      row.innerHTML = `
+        <div class="region-item-head">
+          <span class="region-name">${REGION_LABELS[key] || key}</span>
+          <span class="badge ${tier}">${composite}</span>
+        </div>
+        <div class="region-note">${region.note || ""}</div>
+      `;
+      regionalList.appendChild(row);
+    });
+  } else {
+    regionalCard.style.display = "none";
+  }
 
   const patternsList = document.getElementById("patternsList");
   patternsList.innerHTML = "";
@@ -358,6 +606,17 @@ function renderResult(result, thumbUrl) {
     aiDetailEl.textContent = vision.ai_summary;
   }
 
+  const peerNoteEl = document.getElementById("aiPeerNoteText");
+  const peerParts = [];
+  if (result.skin_age) peerParts.push(`피부나이 ${result.skin_age}세`);
+  if (result.peer_comparison_note) peerParts.push(result.peer_comparison_note);
+  if (peerParts.length > 0) {
+    peerNoteEl.textContent = peerParts.join(" · ");
+    peerNoteEl.style.display = "block";
+  } else {
+    peerNoteEl.style.display = "none";
+  }
+
   const tipsList = document.getElementById("careTipsList");
   tipsList.innerHTML = "";
   (vision.care_tips || []).forEach((tip) => {
@@ -386,12 +645,18 @@ function renderResult(result, thumbUrl) {
         item.href = ing.search_url;
         item.target = "_blank";
         item.rel = "noopener noreferrer";
+
+        const bullets = splitEfficacyToBullets(ing.efficacy, 5);
+        const bulletsHtml = bullets.length
+          ? `<ul class="ingredient-efficacy-list">${bullets.map((b) => `<li>${b}</li>`).join("")}</ul>`
+          : "";
+
         item.innerHTML = `
           <div class="ingredient-name-row">
             <span class="ingredient-name">${ing.name_ko}</span>
             <span class="ingredient-search">검색 →</span>
           </div>
-          <div class="ingredient-efficacy">${ing.efficacy || ""}</div>
+          ${bulletsHtml}
         `;
         groupDiv.appendChild(item);
       });
@@ -426,6 +691,7 @@ function renderResult(result, thumbUrl) {
   // 결과 전용 화면으로 전환 (탭바에는 없는 화면이므로 showScreen 대신 직접 처리)
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   document.getElementById("screen-result").classList.add("active");
+  document.querySelector(".app-header").classList.add("show-back");
 }
 
 // ---------------- 결과 공유 (FR 고도화: 사진은 공유 대상에서 제외) ----------------
@@ -438,7 +704,7 @@ function buildShareText() {
     "[AI-SkinScope 스캔 결과]",
     `종합 점수: ${vision.overall_score}/100 (${status})`,
   ];
-  if (vision.ai_focus) lines.push(`AI 소견: ${vision.ai_focus}`);
+  if (vision.ai_focus) lines.push(`스캐닝 소견: ${vision.ai_focus}`);
   lines.push("본 결과는 AI 참고용 스크리닝이며 의료 진단이 아닙니다.");
   return lines.join("\n");
 }
@@ -629,6 +895,8 @@ function init() {
   initConsent();
   initUserIdField();
   initFeedback();
+  initProfileInputs();
+  initFaceDetection(); // 네트워크 로딩이 있어 카메라 시작 전에 미리 준비해둔다
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);
   document.getElementById("cameraSwitchBtn").addEventListener("click", switchCamera);

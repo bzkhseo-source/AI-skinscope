@@ -14,6 +14,9 @@ def save_record(db: Session, user_id: str, agent_result: AgentResult) -> SkinRec
         overall_score=agent_result.vision.overall_score,
         needs_dermatologist=agent_result.needs_dermatologist,
         result_json=agent_result.model_dump_json(),
+        age=agent_result.age,
+        gender=agent_result.gender,
+        skin_age=agent_result.skin_age,
     )
     db.add(record)
     db.commit()
