@@ -194,9 +194,47 @@ body {
   display: block;
 }
 
+/* 전면 카메라는 라이브 프리뷰에서만 거울처럼 좌우 반전해 보여준다.
+   실제 저장/분석되는 사진은 반전되지 않은 원본 그대로 유지된다. */
+.viewfinder-wrap.mirror-preview video,
+.viewfinder-wrap.mirror-preview img.preview {
+  transform: scaleX(-1);
+}
+
 .viewfinder-frame {
   position: absolute;
   inset: 24px;
+  pointer-events: none;
+}
+
+/* ---------- 촬영 가이드 (정적 타원 프레임 + 안내 문구) ---------- */
+.face-guide-oval {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  width: 62%;
+  aspect-ratio: 3 / 4;
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.viewfinder-wrap.hide-guide .face-guide-oval,
+.viewfinder-wrap.hide-guide .capture-guide-text {
+  display: none;
+}
+
+.capture-guide-text {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
 
@@ -543,6 +581,79 @@ body {
 .pattern-empty {
   font-size: 13px;
   color: var(--color-ink-soft);
+}
+
+/* ---------- AI 소견 (구조화) ---------- */
+.ai-focus {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin: 0 0 6px;
+}
+
+.ai-detail {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ---------- 결과 요약 배지 (상단 압축 고지) ---------- */
+.disclaimer-compact {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-soft);
+}
+
+/* ---------- 추천 성분 ---------- */
+.ingredient-group + .ingredient-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line);
+}
+
+.ingredient-group-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ingredient-item {
+  display: block;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ingredient-item:last-child { margin-bottom: 0; }
+
+.ingredient-item .ingredient-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ingredient-item .ingredient-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ingredient-item .ingredient-search {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.ingredient-item .ingredient-efficacy {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  margin-top: 4px;
+  line-height: 1.5;
 }
 
 /* ---------- 피드백 ---------- */

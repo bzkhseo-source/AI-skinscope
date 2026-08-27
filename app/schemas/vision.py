@@ -44,3 +44,17 @@ class SkinAnalysisResult(BaseModel):
         ..., description="심각도가 높아 전문의 상담을 권장해야 하는지 여부"
     )
     ai_summary: str = Field(..., description="AI가 생성한 종합 소견 (진단 아님 명시 포함)")
+    ai_focus: Optional[str] = Field(
+        default=None,
+        description=(
+            "구조화된 AI 소견 ①: 가장 우선적으로 관리해야 할 포인트를 한 줄로 "
+            "요약 (예: '모공 관리에 가장 집중해보세요'). 면책 문구는 포함하지 않는다."
+        ),
+    )
+    ai_detail: Optional[str] = Field(
+        default=None,
+        description=(
+            "구조화된 AI 소견 ②: ai_focus로 판단한 시각적 근거를 1~2문장으로 "
+            "설명 (예: '다른 항목에 비해 모공이 두드러지게 관찰됩니다')."
+        ),
+    )

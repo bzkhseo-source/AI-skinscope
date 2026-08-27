@@ -94,6 +94,11 @@ function initConsent() {
 }
 
 // ---------------- 카메라 ----------------
+function updateMirrorPreview() {
+  const wrap = document.getElementById("viewfinderWrap");
+  wrap.classList.toggle("mirror-preview", state.facingMode === "user");
+}
+
 async function startCamera() {
   const video = document.getElementById("cameraVideo");
   try {
@@ -103,6 +108,7 @@ async function startCamera() {
     });
     video.srcObject = state.stream;
     document.getElementById("viewfinderWrap").classList.add("scanning");
+    updateMirrorPreview();
   } catch (err) {
     console.warn("카메라 접근 실패, 갤러리 선택으로 대체합니다.", err);
   }
@@ -129,11 +135,11 @@ function capturePhotoFromVideo() {
   canvas.height = video.videoHeight || 960;
   const ctx = canvas.getContext("2d");
 
-  // 전면 카메라는 좌우 반전되어 보이므로, 저장 시에는 원래 방향으로 되돌린다.
-  if (state.facingMode === "user") {
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-  }
+  // 라이브 프리뷰는 CSS(.mirror-preview)로만 거울처럼 반전해 보여줄 뿐,
+  // <video>가 담고 있는 원본 프레임 자체는 반전되어 있지 않다. canvas는
+  // 화면 표시가 아닌 원본 프레임을 그대로 그리므로, 여기서 다시 반전하면
+  // 오히려 저장되는 사진이 실물과 반대로 뒤집힌다. 후면/전면 모두 원본
+  // 그대로 캡처한다.
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
   canvas.toBlob(
@@ -154,6 +160,7 @@ function onPhotoCaptured(blob) {
   previewImg.src = URL.createObjectURL(blob);
   video.style.display = "none";
   previewImg.style.display = "block";
+  document.getElementById("viewfinderWrap").classList.add("hide-guide");
 
   document.getElementById("shutterBtn").style.display = "none";
   document.getElementById("fileTriggerBtn").style.display = "none";
@@ -170,7 +177,9 @@ function resetCaptureUI() {
   video.style.display = "block";
   previewImg.style.display = "none";
 
-  document.getElementById("viewfinderWrap").style.display = "";
+  const viewfinderWrap = document.getElementById("viewfinderWrap");
+  viewfinderWrap.style.display = "";
+  viewfinderWrap.classList.remove("hide-guide");
   document.getElementById("shutterBtn").style.display = "inline-block";
   document.getElementById("fileTriggerBtn").style.display = "block";
   document.getElementById("cameraSwitchBtn").style.display = "block";
@@ -251,6 +260,8 @@ const FEATURE_LABELS = {
 function renderResult(result, thumbUrl) {
   const vision = result.vision;
   state.currentRecordId = result.record_id || null;
+  state.currentVision = vision;
+  state.currentNeedsDermatologist = result.needs_dermatologist;
   resetFeedbackUI();
 
   // 상단 요약 카드 (사진 썸네일은 품질 실패 시에도 그대로 보여준다)
@@ -335,7 +346,17 @@ function renderResult(result, thumbUrl) {
       '<div class="pattern-empty">사진에서 특별히 두드러진 질환 패턴은 발견되지 않았습니다.</div>';
   }
 
-  document.getElementById("aiSummaryText").textContent = vision.ai_summary;
+  const aiFocusEl = document.getElementById("aiFocusText");
+  const aiDetailEl = document.getElementById("aiDetailText");
+  if (vision.ai_focus) {
+    aiFocusEl.textContent = vision.ai_focus;
+    aiFocusEl.style.display = "block";
+    aiDetailEl.textContent = vision.ai_detail || "";
+  } else {
+    // 구조화된 소견이 없는 과거 기록은 기존 자유 텍스트 소견으로 대체 표시한다.
+    aiFocusEl.style.display = "none";
+    aiDetailEl.textContent = vision.ai_summary;
+  }
 
   const tipsList = document.getElementById("careTipsList");
   tipsList.innerHTML = "";
@@ -344,6 +365,42 @@ function renderResult(result, thumbUrl) {
     li.textContent = tip;
     tipsList.appendChild(li);
   });
+
+  const productRecoCard = document.getElementById("productRecoCard");
+  const productRecoList = document.getElementById("productRecoList");
+  productRecoList.innerHTML = "";
+  if (result.product_recommendations && result.product_recommendations.length > 0) {
+    productRecoCard.style.display = "block";
+    result.product_recommendations.forEach((group) => {
+      const groupDiv = document.createElement("div");
+      groupDiv.className = "ingredient-group";
+
+      const title = document.createElement("div");
+      title.className = "ingredient-group-title";
+      title.textContent = `${group.concern_label_ko} 관리에 도움이 되는 성분`;
+      groupDiv.appendChild(title);
+
+      group.ingredients.forEach((ing) => {
+        const item = document.createElement("a");
+        item.className = "ingredient-item";
+        item.href = ing.search_url;
+        item.target = "_blank";
+        item.rel = "noopener noreferrer";
+        item.innerHTML = `
+          <div class="ingredient-name-row">
+            <span class="ingredient-name">${ing.name_ko}</span>
+            <span class="ingredient-search">검색 →</span>
+          </div>
+          <div class="ingredient-efficacy">${ing.efficacy || ""}</div>
+        `;
+        groupDiv.appendChild(item);
+      });
+
+      productRecoList.appendChild(groupDiv);
+    });
+  } else {
+    productRecoCard.style.display = "none";
+  }
 
   const hospitalCard = document.getElementById("hospitalCard");
   const hospitalList = document.getElementById("hospitalList");
@@ -369,6 +426,43 @@ function renderResult(result, thumbUrl) {
   // 결과 전용 화면으로 전환 (탭바에는 없는 화면이므로 showScreen 대신 직접 처리)
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
   document.getElementById("screen-result").classList.add("active");
+}
+
+// ---------------- 결과 공유 (FR 고도화: 사진은 공유 대상에서 제외) ----------------
+function buildShareText() {
+  const vision = state.currentVision;
+  if (!vision) return "";
+
+  const status = state.currentNeedsDermatologist ? "전문의 상담 권장" : "양호";
+  const lines = [
+    "[AI-SkinScope 스캔 결과]",
+    `종합 점수: ${vision.overall_score}/100 (${status})`,
+  ];
+  if (vision.ai_focus) lines.push(`AI 소견: ${vision.ai_focus}`);
+  lines.push("본 결과는 AI 참고용 스크리닝이며 의료 진단이 아닙니다.");
+  return lines.join("\n");
+}
+
+async function shareResult() {
+  const text = buildShareText();
+  if (!text) return;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "AI-SkinScope 스캔 결과", text });
+    } catch (err) {
+      if (err.name !== "AbortError") console.error(err);
+    }
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("결과가 클립보드에 복사되었습니다.");
+  } catch (err) {
+    console.error(err);
+    alert("공유하기를 지원하지 않는 환경입니다.");
+  }
 }
 
 // ---------------- 이력 상세보기 ----------------
@@ -560,6 +654,7 @@ function init() {
     }
   });
   document.getElementById("retryFromResultBtn").addEventListener("click", resetCaptureUI);
+  document.getElementById("shareResultBtn").addEventListener("click", shareResult);
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch((err) => {
       console.warn("서비스워커 등록 실패:", err);

@@ -3,6 +3,7 @@ from typing import Optional
 
 from app.schemas.agent import AgentResult
 from app.schemas.vision import SkinAnalysisResult
+from app.services.ingredient_service import recommend_products
 from app.services.kakao_service import search_nearby_dermatology_clinics
 from app.services.vision_service import analyze_skin_image
 
@@ -74,10 +75,12 @@ def run_skin_analysis_agent(
         logger.info("위치 정보가 없어 병원 검색 도구를 호출하지 않았습니다.")
 
     recommendation_message = _build_recommendation_message(vision_result, needs_dermatologist)
+    product_recommendations = recommend_products(vision_result)
 
     return AgentResult(
         vision=vision_result,
         needs_dermatologist=needs_dermatologist,
         recommendation_message=recommendation_message,
         hospitals=hospitals,
+        product_recommendations=product_recommendations,
     )

@@ -57,6 +57,10 @@
         <div class="corner br"></div>
         <div class="scan-line"></div>
       </div>
+      <div class="face-guide-oval"></div>
+      <div class="capture-guide-text">
+        밝은 곳에서 얼굴이 타원 안에 오도록, 30cm 정도 거리를 두고 정면에서 촬영해주세요
+      </div>
     </div>
 
     <div class="capture-controls">
@@ -94,9 +98,7 @@
           <div class="value"><span id="scoreValue">0</span><small>/100</small></div>
         </div>
         <span class="badge ok" id="statusBadge">양호</span>
-        <div class="disclaimer">
-          본 결과는 AI 참고용 스크리닝이며 의료 진단이 아닙니다. 정확한 진단은 피부과 전문의와 상담하세요.
-        </div>
+        <div class="disclaimer-compact">AI 참고용 스크리닝 · 의료 진단 아님</div>
       </div>
 
       <div class="feature-grid" id="featureGrid"></div>
@@ -104,15 +106,15 @@
       <div class="section-card" id="patternsCard">
         <h3>참고 패턴 안내</h3>
         <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
-          아래는 사진에서 관찰된 시각적 특징과 유사한 패턴을 참고용으로 안내하는 것이며,
-          <strong>의료 진단이 아닙니다.</strong>
+          아래는 사진에서 관찰된 시각적 특징과 유사한 참고 패턴입니다.
         </p>
         <div id="patternsList"></div>
       </div>
 
       <div class="section-card">
         <h3>AI 소견</h3>
-        <p id="aiSummaryText" style="font-size:13px; line-height:1.6; margin:0;"></p>
+        <p class="ai-focus" id="aiFocusText" style="display:none"></p>
+        <p class="ai-detail" id="aiDetailText"></p>
       </div>
 
       <div class="section-card" id="careTipsCard">
@@ -120,9 +122,31 @@
         <ul id="careTipsList"></ul>
       </div>
 
+      <div class="section-card" id="productRecoCard" style="display:none">
+        <h3>추천 성분</h3>
+        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+          AI Hub 스킨케어 성분-효능 데이터를 근거로 한 참고용 추천이며,
+          특정 제품을 판매하거나 연동하지 않습니다. 구매 전 전성분표와
+          본인의 피부 반응을 꼭 확인하세요.
+        </p>
+        <div id="productRecoList"></div>
+      </div>
+
       <div class="section-card" id="hospitalCard" style="display:none">
         <h3>근처 피부과</h3>
         <div id="hospitalList"></div>
+      </div>
+
+      <button class="btn-secondary" id="shareResultBtn">결과 공유하기</button>
+
+      <div class="section-card">
+        <h3>이 결과는 어떻게 만들어졌나요?</h3>
+        <p style="font-size:12px; line-height:1.6; color:var(--color-ink-soft); margin:0;">
+          본 결과는 AI Hub 공인 데이터셋(안면부 피부질환 이미지 12,000장 +
+          한국인 피부상태 실측 데이터 1,072명)을 근거로 Gemini Vision이
+          분석한 <strong>참고용 스크리닝</strong>이며, 의료 진단이 아닙니다.
+          정확한 진단은 피부과 전문의와 상담하세요.
+        </p>
       </div>
 
       <div class="section-card" id="feedbackCard">
