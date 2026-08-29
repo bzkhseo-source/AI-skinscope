@@ -797,36 +797,84 @@ function renderResult(result, thumbUrl) {
   document.querySelector(".app-header").classList.add("show-back");
 }
 
-// ---------------- 결과 공유 (FR 고도화: 사진은 공유 대상에서 제외) ----------------
+// ---------------- 결과 공유 (사진·병원·추천성분 등 개인화 정보는 제외) ----------------
 function buildShareText() {
   const vision = state.currentVision;
   if (!vision) return "";
 
-  const status = state.currentNeedsDermatologist ? "전문의 상담 권장" : "양호";
+  const tier = state.currentNeedsDermatologist
+    ? { label: "피부과 전문의 진료 권고" }
+    : overallScoreTier(vision.overall_score);
+
   const lines = [
     "[AI-SkinScope 스캔 결과]",
-    `종합 점수: ${vision.overall_score}/100 (${status})`,
+    `종합 점수: ${vision.overall_score}/100 (${tier.label})`,
+    "",
   ];
-  if (vision.ai_focus) lines.push(`스캐닝 소견: ${vision.ai_focus}`);
+
+  Object.entries(vision.feature_scores).forEach(([key, value]) => {
+    const featureTier = featureScoreTier(value);
+    lines.push(`- ${FEATURE_LABELS[key] || key}: ${value}/100 (${featureTier.label})`);
+  });
+
+  if (vision.ai_focus || vision.ai_detail) {
+    lines.push("");
+    if (vision.ai_focus) lines.push(`스캐닝 소견: ${vision.ai_focus}`);
+    if (vision.ai_detail) lines.push(vision.ai_detail);
+  }
+
+  if (vision.care_tips && vision.care_tips.length > 0) {
+    lines.push("");
+    lines.push("관리 팁:");
+    vision.care_tips.forEach((tip) => lines.push(`- ${tip}`));
+  }
+
+  lines.push("");
   lines.push("본 결과는 AI 참고용 스크리닝이며 의료 진단이 아닙니다.");
   return lines.join("\n");
+}
+
+// 서버에 추측 불가능한 토큰의 임시 공유 링크(7일 후 만료)를 발급받는다.
+// record_id가 없는 경우(사진 인식 실패 등 저장되지 않은 결과)는 링크 없이
+// 텍스트만 공유한다.
+async function createShareUrl() {
+  if (!state.currentRecordId) return null;
+  try {
+    const response = await fetch(`${API_BASE}/analyze/${state.currentRecordId}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: getUserId() }),
+    });
+    if (!response.ok) return null;
+    const { token } = await response.json();
+    return `${location.origin}/share.html?token=${token}`;
+  } catch (err) {
+    console.warn("공유 링크 생성 실패, 텍스트만 공유합니다.", err);
+    return null;
+  }
 }
 
 async function shareResult() {
   const text = buildShareText();
   if (!text) return;
 
+  const shareUrl = await createShareUrl();
+
   if (navigator.share) {
     try {
-      await navigator.share({ title: "AI-SkinScope 스캔 결과", text });
+      const shareData = shareUrl
+        ? { title: "AI-SkinScope 스캔 결과", text, url: shareUrl }
+        : { title: "AI-SkinScope 스캔 결과", text };
+      await navigator.share(shareData);
     } catch (err) {
       if (err.name !== "AbortError") console.error(err);
     }
     return;
   }
 
+  const clipboardText = shareUrl ? `${text}\n\n전체 결과 보기: ${shareUrl}` : text;
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(clipboardText);
     alert("결과가 클립보드에 복사되었습니다.");
   } catch (err) {
     console.error(err);

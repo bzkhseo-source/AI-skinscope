@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>AI-SkinScope 공유 결과</title>
+<meta name="description" content="AI-SkinScope로 분석한 피부 스캔 결과 (참고용, 의료 진단 아님)" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="theme-color" content="#C97A5D" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="app-header">
+    <div>
+      <div class="logo">AI-<span>SkinScope</span></div>
+      <div class="tagline">Shared Screening Result</div>
+    </div>
+  </header>
+
+  <section class="screen active" id="shareScreen">
+
+    <div class="section-card" id="shareLoading">
+      <p style="margin:0; font-size:13px; color:var(--color-ink-soft);">결과를 불러오는 중...</p>
+    </div>
+
+    <div class="section-card" id="shareError" style="display:none">
+      <h3>링크를 열 수 없습니다</h3>
+      <p style="font-size:13px; line-height:1.6; color:var(--color-ink-soft); margin:0 0 14px;">
+        공유 링크가 만료되었거나 존재하지 않습니다. 공유 링크는 발급 후 일정 기간이
+        지나면 자동으로 만료됩니다.
+      </p>
+      <a class="btn-primary" href="index.html" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;">AI-SkinScope 둘러보기</a>
+    </div>
+
+    <div id="shareReport" style="display:none; flex-direction:column; gap:14px;">
+      <div class="gauge-card">
+        <div class="score-info">
+          <div class="score-main"><span id="scoreValue">0</span><small>/100점</small></div>
+          <span class="badge ok" id="scoreTierBadge">양호</span>
+          <p class="score-desc" id="scoreDescText"></p>
+        </div>
+      </div>
+
+      <div class="feature-grid" id="featureGrid"></div>
+
+      <div class="section-card" id="aiOpinionCard" style="display:none">
+        <h3>AI 피부 스캐닝 소견</h3>
+        <div class="ai-opinion-box">
+          <p class="ai-focus" id="aiFocusText" style="display:none"></p>
+          <p class="ai-detail" id="aiDetailText"></p>
+        </div>
+      </div>
+
+      <div class="section-card" id="careTipsCard" style="display:none">
+        <h3>맞춤 스킨케어 팁</h3>
+        <ul id="careTipsList"></ul>
+      </div>
+
+      <div class="section-card">
+        <h3>꼭 알아주세요</h3>
+        <p style="font-size:12px; line-height:1.6; color:var(--color-ink-soft); margin:0;">
+          본 결과는 <strong>AI 참고용 스크리닝</strong>이며 의료 진단이 아닙니다.
+          정확한 진단은 피부과 전문의와 상담하세요.
+        </p>
+      </div>
+
+      <a class="btn-primary" href="index.html" style="display:block; text-align:center; text-decoration:none; box-sizing:border-box;">나도 피부 분석 해보기 →</a>
+    </div>
+
+  </section>
+
+</div>
+
+<script src="share.js"></script>
+</body>
+</html>

@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.schemas.agent import AgentResult
 from app.schemas.feedback import FeedbackRequest
+from app.schemas.share import ShareCreateRequest, ShareLinkResponse
 from app.services.agent_service import run_skin_analysis_agent
 from app.services.memory_service import save_feedback, save_record
+from app.services.share_service import create_share_link
 
 router = APIRouter(prefix="/analyze", tags=["analyze"])
 
@@ -74,3 +76,13 @@ def submit_feedback(
     if record is None:
         raise HTTPException(status_code=404, detail="해당 기록을 찾을 수 없습니다.")
     return {"status": "ok"}
+
+
+@router.post("/{record_id}/share", response_model=ShareLinkResponse)
+def create_share(
+    record_id: int, payload: ShareCreateRequest, db: Session = Depends(get_db)
+) -> ShareLinkResponse:
+    link = create_share_link(db, user_id=payload.user_id, record_id=record_id)
+    if link is None:
+        raise HTTPException(status_code=404, detail="해당 기록을 찾을 수 없습니다.")
+    return ShareLinkResponse(token=link.token, expires_at=link.expires_at)
