@@ -20,7 +20,10 @@
       <div class="logo">AI-<span>SkinScope</span></div>
       <div class="tagline">Reference Screening, Not Diagnosis</div>
     </div>
-    <button class="back-btn" id="resultBackBtn">← 뒤로</button>
+    <div class="header-actions">
+      <button class="guide-btn" id="guideOpenBtn" type="button" aria-label="사용 방법 보기">ⓘ 사용법</button>
+      <button class="back-btn" id="resultBackBtn">← 뒤로</button>
+    </div>
   </header>
 
   <div class="user-id-bar">
@@ -102,12 +105,12 @@
 
     <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
       <div class="gauge-card">
-        <img id="resultThumb" class="result-thumb-mini" alt="분석한 사진" />
-        <div class="gauge" id="scoreGauge" style="--pct:0">
-          <div class="value">
-            <span class="badge ok" id="statusBadge">양호</span>
-            <div class="score-num"><span id="scoreValue">0</span><small>/100</small></div>
-          </div>
+        <img id="resultThumb" class="score-thumb-img" alt="분석한 사진" />
+        <div class="score-info">
+          <span class="skin-age-badge" id="skinAgeBadge" style="display:none"></span>
+          <div class="score-main"><span id="scoreValue">0</span><small>/100점</small></div>
+          <span class="badge ok" id="scoreTierBadge">양호</span>
+          <p class="score-desc" id="scoreDescText"></p>
         </div>
       </div>
 
@@ -146,19 +149,21 @@
       </div>
 
       <div class="section-card">
-        <h3>스캐닝 소견</h3>
-        <p class="ai-focus" id="aiFocusText" style="display:none"></p>
-        <p class="ai-detail" id="aiDetailText"></p>
+        <h3>AI 피부 스캐닝 소견</h3>
+        <div class="ai-opinion-box">
+          <p class="ai-focus" id="aiFocusText" style="display:none"></p>
+          <p class="ai-detail" id="aiDetailText"></p>
+        </div>
         <p class="ai-peer-note" id="aiPeerNoteText" style="display:none"></p>
       </div>
 
       <div class="section-card" id="careTipsCard">
-        <h3>관리 팁</h3>
+        <h3>맞춤 스킨케어 팁</h3>
         <ul id="careTipsList"></ul>
       </div>
 
       <div class="section-card" id="productRecoCard" style="display:none">
-        <h3>추천 성분</h3>
+        <h3>맞춤 추천 성분 & 화장품 연동</h3>
         <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
           스킨케어 성분-효능 데이터를 근거로 한 추천 성분으로 본인 피부 반응을 꼭 확인하세요.
         </p>
@@ -285,6 +290,69 @@
   <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
     <div style="font-family:var(--font-mono); font-size:12px; color:var(--color-ink-soft);">분석 중...</div>
+  </div>
+
+  <div class="modal-overlay" id="guideModalOverlay">
+    <div class="modal-card">
+      <button class="modal-close" id="guideCloseBtn" type="button" aria-label="닫기">✕</button>
+      <h2 class="modal-title">AI-SkinScope 사용 방법</h2>
+      <p class="modal-intro">
+        AI-SkinScope는 얼굴 사진을 AI로 분석하여 피부 상태를 참고용으로 확인하고,
+        개인의 피부 고민에 맞는 관리 방법과 추천 성분을 안내해 드립니다.
+      </p>
+
+      <div class="guide-step">
+        <h3>01. 나이와 성별을 입력해주세요</h3>
+        <p>나이와 성별을 입력하면 동년배 평균과 비교한 피부 상태와 피부 나이 분석에 활용할 수 있습니다.</p>
+        <p>입력하지 않아도 기본적인 피부 분석은 이용할 수 있습니다.</p>
+      </div>
+
+      <div class="guide-step">
+        <h3>02. 얼굴을 가이드라인에 맞춰주세요</h3>
+        <p>밝은 곳에서 화면에 표시된 얼굴 가이드라인 안에 얼굴이 들어오도록 위치를 맞춰주세요.</p>
+        <p>얼굴과 카메라의 거리는 약 <strong>30cm</strong>를 유지하고, 정면을 바라봐 주세요.</p>
+      </div>
+
+      <div class="guide-step">
+        <h3>03. 얼굴이 인식되면 자동으로 촬영됩니다</h3>
+        <p>얼굴이 가이드라인에 적절하게 위치하면 자동 촬영이 진행됩니다.</p>
+        <p>자동 촬영이 되지 않는 경우에는 화면 아래의 <strong>촬영 버튼</strong>을 눌러 직접 촬영할 수 있습니다.</p>
+        <p>사진이 흐리거나 얼굴이 제대로 보이지 않는 경우에는 다시 촬영해주세요.</p>
+      </div>
+
+      <div class="guide-step">
+        <h3>04. AI 피부 분석을 진행합니다</h3>
+        <p>촬영된 사진을 바탕으로 AI가 피부의 여러 특징을 분석합니다.</p>
+        <p>수분, 탄력, 모공, 주름, 색소침착, 붉은기 등의 상태를 확인하고, 부위별 피부 상태와 주요 피부 패턴을 함께 분석합니다.</p>
+      </div>
+
+      <div class="guide-step">
+        <h3>05. 나에게 맞는 관리 방법을 확인하세요</h3>
+        <p>분석 결과에서는 전체 피부 점수와 함께 각 항목의 상태를 <strong>매우 양호 / 양호 / 주의 / 경고</strong> 등의 상태 라벨로 쉽게 확인할 수 있습니다.</p>
+        <p>또한 분석 결과를 바탕으로 피부 관리 팁과 추천 성분을 확인할 수 있으며, 필요한 경우 피부과 상담을 안내받을 수 있습니다.</p>
+      </div>
+
+      <hr class="guide-divider" />
+
+      <div class="guide-step">
+        <h3>촬영할 때 참고해주세요</h3>
+        <ul>
+          <li>밝고 균일한 환경에서 촬영해주세요.</li>
+          <li>얼굴에 그림자가 생기지 않도록 해주세요.</li>
+          <li>모자, 마스크, 선글라스 등 얼굴을 가리는 물건은 제거해주세요.</li>
+          <li>정면을 바라보고 자연스러운 표정으로 촬영해주세요.</li>
+          <li>피부가 잘 보이도록 카메라 렌즈를 깨끗하게 유지해주세요.</li>
+        </ul>
+      </div>
+
+      <div class="guide-step guide-notice">
+        <h3>꼭 알아주세요</h3>
+        <p>AI-SkinScope의 분석 결과는 <strong>의료 진단이 아닌 참고용 스크리닝 결과</strong>입니다.</p>
+        <p>피부에 이상 증상이 있거나 증상이 지속되는 경우에는 AI 결과만으로 판단하지 마시고 피부과 전문의와 상담해주세요.</p>
+      </div>
+
+      <button class="btn-primary" id="guideConfirmBtn" type="button" style="width:100%; margin-top:14px;">확인했어요</button>
+    </div>
   </div>
 
 </div>

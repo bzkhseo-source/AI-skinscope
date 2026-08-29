@@ -13,8 +13,9 @@ from app.services.vision_service import (
 
 logger = logging.getLogger(__name__)
 
-# overall_score가 이 값 미만이면 Gemini가 needs_dermatologist=false를 냈더라도
+# overall_score가 이 값 이하이면 Gemini가 needs_dermatologist=false를 냈더라도
 # Agent가 자체 규칙으로 병원 방문 권장으로 상향 조정한다 (이중 안전장치).
+# 프론트의 6단계 점수 구간("40점 이하 = 피부과 전문의 진료 권고 구간")과 경계를 맞춘다.
 OVERALL_SCORE_SAFETY_THRESHOLD = 40
 
 DISCLAIMER = "본 결과는 AI 참고용 스크리닝이며 의료 진단이 아닙니다."
@@ -26,7 +27,7 @@ def _decide_needs_dermatologist(vision: SkinAnalysisResult) -> bool:
         return False  # 사진 인식 실패 케이스는 병원 방문 권장 대상이 아님
     if vision.needs_dermatologist:
         return True
-    if vision.overall_score < OVERALL_SCORE_SAFETY_THRESHOLD:
+    if vision.overall_score <= OVERALL_SCORE_SAFETY_THRESHOLD:
         return True
     return False
 

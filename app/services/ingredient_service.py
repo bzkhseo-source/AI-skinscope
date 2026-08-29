@@ -56,9 +56,16 @@ def _load_ingredient_concerns() -> dict:
     return _ingredient_map_cache
 
 
+# "댕댕이나무열매즙"처럼 성분 한글명에 "댕댕이"(강아지를 뜻하는 인터넷 속어)
+# 등 반려동물 연상 단어가 포함된 경우, 검색 결과에 애견용품이 섞여 나온다.
+# 사람용 화장품임을 명시하고 반려동물 관련 키워드를 제외해 정확도를 높인다.
+SEARCH_EXCLUDE_TERMS = ["강아지", "반려동물", "펫", "애견", "고양이"]
+
+
 def _build_search_url(name_ko: str) -> str:
     """실시간 커머스 연동 대신, 성분명으로 검색할 수 있는 링크를 대체 제공한다."""
-    query = quote(f"{name_ko} 성분 화장품")
+    exclude = " ".join(f"-{term}" for term in SEARCH_EXCLUDE_TERMS)
+    query = quote(f"{name_ko} 성분 화장품 인체용 {exclude}")
     return f"https://search.shopping.naver.com/search/all?query={query}"
 
 

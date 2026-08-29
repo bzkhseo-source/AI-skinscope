@@ -293,6 +293,14 @@ SKIN_AGE_MAX_RELIABLE_DIFF = 20
 # 대표값 65세 대비 10세 이상), 참고할 상위 연령대 데이터 자체가 없다는 뜻이므로
 # 신뢰할 수 없는 결과로 표시한다.
 SKIN_AGE_MAX_BAND_OVERAGE = 10
+# Gemini Vision은 인물 사진의 피부 상태를 실제보다 관대하게(=더 젊게) 채점하는
+# 경향이 뚜렷하다. _age_band_score_profile()의 각 연령대 프로필은 "전체 인구
+# 백분위" 기준으로 매겨지므로, 이런 낙관적 채점은 항상 가장 젊은 연령대
+# 프로필과 가장 가깝게 매칭되어 skin_age가 체계적으로 낮게(어리게) 나온다.
+# 실제 나이보다 어리게 나온 경우에 한해 그 격차를 이 비율만큼만 인정해
+# 실제 나이 쪽으로 당긴다(0.5 = 격차 절반만 반영). 반대로 실제보다 나이 들어
+# 보인다고 나온 경우는 이미 보수적인 방향이므로 보정하지 않는다.
+SKIN_AGE_YOUTH_GAP_FACTOR = 0.5
 
 
 def _max_age_band() -> Optional[int]:
@@ -339,6 +347,11 @@ def compute_skin_age(
         return None, True
 
     skin_age = best_band + 5  # 구간 대표값(예: "20대" 구간 -> 25세)으로 근사
+
+    # 낙관적 채점 편향 보정: 실제 나이보다 어리게 나온 경우에만 격차를 줄인다.
+    if age is not None and skin_age < age:
+        youth_gap = age - skin_age
+        skin_age = age - round(youth_gap * SKIN_AGE_YOUTH_GAP_FACTOR)
 
     reliable = True
     if age is not None:

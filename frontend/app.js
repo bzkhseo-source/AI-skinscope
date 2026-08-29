@@ -518,6 +518,16 @@ function featureScoreTier(score) {
   return { cls: "warn", label: "관리 필요" };
 }
 
+// 종합 점수(overall_score)용 6단계 상태 구간. 기준 평균 60점, 10점 단위로 관리.
+function overallScoreTier(score) {
+  if (score <= 40) return { cls: "derm", label: "피부과 전문의 진료 권고" };
+  if (score <= 50) return { cls: "warn", label: "경고" };
+  if (score <= 60) return { cls: "caution", label: "주의" };
+  if (score <= 70) return { cls: "ok", label: "양호" };
+  if (score <= 80) return { cls: "excellent", label: "매우양호" };
+  return { cls: "top", label: "백옥 피부 미녀(미남)" };
+}
+
 // 성분 효능 원문(완전한 문장)을 개조식 불릿으로 쪼갠다. 문장 끝
 // (마침표/물음표/느낌표 다음 공백, 줄바꿈)을 기준으로 나누고 빈 조각을
 // 버린 뒤 최대 maxLines개로 자른다.
@@ -564,16 +574,26 @@ function renderResult(result, thumbUrl) {
 
   qualityCard.style.display = "none";
 
-  const badge = document.getElementById("statusBadge");
+  // needs_dermatologist는 점수 구간과 별개로 Gemini/Agent가 심각도를 직접
+  // 판단해 켜질 수도 있으므로(예: 점수는 애매해도 위험 소견 감지), 그 경우
+  // 점수 구간 배지도 항상 "전문의 진료 권고"로 맞춰 서로 모순되지 않게 한다.
+  const tier = result.needs_dermatologist
+    ? { cls: "derm", label: "피부과 전문의 진료 권고" }
+    : overallScoreTier(vision.overall_score);
+
+  const scoreTierBadge = document.getElementById("scoreTierBadge");
+  scoreTierBadge.textContent = tier.label;
+  scoreTierBadge.className = `badge ${tier.cls}`;
+
+  const scoreDesc = document.getElementById("scoreDescText");
   if (result.needs_dermatologist) {
-    badge.textContent = "전문의 상담 권장";
-    badge.className = "badge warn";
+    scoreDesc.textContent = "전문의 상담을 권장드려요. 가까운 피부과 방문을 고려해보세요.";
+    scoreDesc.classList.add("warn");
   } else {
-    badge.textContent = "양호";
-    badge.className = "badge ok";
+    scoreDesc.textContent = vision.ai_focus || vision.ai_summary || "";
+    scoreDesc.classList.remove("warn");
   }
 
-  document.getElementById("scoreGauge").style.setProperty("--pct", vision.overall_score);
   document.getElementById("scoreValue").textContent = vision.overall_score;
 
   const grid = document.getElementById("featureGrid");
@@ -581,16 +601,14 @@ function renderResult(result, thumbUrl) {
   Object.entries(vision.feature_scores).forEach(([key, value]) => {
     const tier = featureScoreTier(value);
     const item = document.createElement("div");
-    item.className = `feature-item ${tier.cls}`;
+    item.className = "feature-item";
     item.innerHTML = `
       <div class="feature-item-head">
         <span class="label">${FEATURE_LABELS[key] || key}</span>
-        <svg class="feature-item-icon" viewBox="0 0 40 20" aria-hidden="true">
-          <path d="M1 15 L10 9 L17 13 L26 4 L32 8 L39 2" />
-        </svg>
+        <span class="badge ${tier.cls}">${tier.label}</span>
       </div>
-      <span class="num">${value}</span>
-      <span class="badge ${tier.cls}">${tier.label}</span>
+      <div class="num">${value}<small>/100</small></div>
+      <div class="bar-track"><div class="bar-fill ${tier.cls}" style="width:${value}%"></div></div>
     `;
     grid.appendChild(item);
   });
@@ -664,18 +682,25 @@ function renderResult(result, thumbUrl) {
     aiDetailEl.textContent = vision.ai_summary;
   }
 
-  const peerNoteEl = document.getElementById("aiPeerNoteText");
-  const peerParts = [];
+  const skinAgeBadge = document.getElementById("skinAgeBadge");
   if (result.skin_age) {
+    skinAgeBadge.style.display = "inline-block";
     if (result.skin_age_reliable === false) {
-      peerParts.push("동년배 비교 데이터가 부족해 피부나이는 참고용으로만 제공돼요");
+      skinAgeBadge.textContent = "피부나이 참고용 (데이터 부족)";
+      skinAgeBadge.classList.add("muted");
     } else {
-      peerParts.push(`피부나이 ${result.skin_age}세`);
+      const delta = result.age ? result.skin_age - result.age : null;
+      const deltaText = delta ? ` (실제 대비 ${delta > 0 ? "+" : ""}${delta}세)` : "";
+      skinAgeBadge.textContent = `피부 나이 ${result.skin_age}세${deltaText}`;
+      skinAgeBadge.classList.remove("muted");
     }
+  } else {
+    skinAgeBadge.style.display = "none";
   }
-  if (result.peer_comparison_note) peerParts.push(result.peer_comparison_note);
-  if (peerParts.length > 0) {
-    peerNoteEl.textContent = peerParts.join(" · ");
+
+  const peerNoteEl = document.getElementById("aiPeerNoteText");
+  if (result.peer_comparison_note) {
+    peerNoteEl.textContent = result.peer_comparison_note;
     peerNoteEl.style.display = "block";
   } else {
     peerNoteEl.style.display = "none";
@@ -718,7 +743,7 @@ function renderResult(result, thumbUrl) {
         item.innerHTML = `
           <div class="ingredient-name-row">
             <span class="ingredient-name">${ing.name_ko}</span>
-            <span class="ingredient-search">검색 →</span>
+            <span class="ingredient-search">관련 화장품 검색 →</span>
           </div>
           ${bulletsHtml}
         `;
@@ -953,6 +978,32 @@ function initFeedback() {
   });
 }
 
+// ---------------- 사용 방법 안내 팝업 ----------------
+const GUIDE_SEEN_STORAGE_KEY = "skinscope_guide_seen";
+
+function openGuideModal() {
+  document.getElementById("guideModalOverlay").classList.add("active");
+}
+
+function closeGuideModal() {
+  document.getElementById("guideModalOverlay").classList.remove("active");
+  localStorage.setItem(GUIDE_SEEN_STORAGE_KEY, "true");
+}
+
+function initGuideModal() {
+  document.getElementById("guideOpenBtn").addEventListener("click", openGuideModal);
+  document.getElementById("guideCloseBtn").addEventListener("click", closeGuideModal);
+  document.getElementById("guideConfirmBtn").addEventListener("click", closeGuideModal);
+  document.getElementById("guideModalOverlay").addEventListener("click", (e) => {
+    if (e.target.id === "guideModalOverlay") closeGuideModal();
+  });
+
+  // 처음 방문하는 사용자에게는 자동으로 한 번 보여준다.
+  if (localStorage.getItem(GUIDE_SEEN_STORAGE_KEY) !== "true") {
+    openGuideModal();
+  }
+}
+
 // ---------------- 초기화 ----------------
 function init() {
   initTabs();
@@ -960,6 +1011,7 @@ function init() {
   initUserIdField();
   initFeedback();
   initProfileInputs();
+  initGuideModal();
   initFaceDetection(); // 네트워크 로딩이 있어 카메라 시작 전에 미리 준비해둔다
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);

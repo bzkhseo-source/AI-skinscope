@@ -398,6 +398,27 @@ body {
 
 .camera-switch-btn:disabled { opacity: 0.4; }
 
+/* ---------- 헤더 우측 버튼 그룹 (사용법 + 뒤로가기) ---------- */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.guide-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-soft);
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
 /* ---------- 뒤로가기 버튼 (헤더 우측 상단 고정) ---------- */
 .back-btn {
   display: none;
@@ -415,14 +436,32 @@ body {
 .app-header.show-back .back-btn { display: block; }
 
 /* ---------- 결과 사진 썸네일 (게이지 카드 내부, 좌측 배치) ---------- */
-.result-thumb-mini {
-  width: 92px;
-  height: 92px;
+.score-thumb-img {
+  width: 84px;
+  height: 84px;
   border-radius: var(--radius-card-sm);
   object-fit: cover;
+  background: var(--color-surface-warm);
   border: 2px solid var(--color-surface);
   box-shadow: var(--shadow-card);
   flex-shrink: 0;
+}
+
+/* ---------- 피부나이 배지 (스코어 카드 상단) ---------- */
+.skin-age-badge {
+  display: inline-block;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 6px;
+}
+
+.skin-age-badge.muted {
+  background: var(--color-line);
+  color: var(--color-ink-soft);
 }
 
 /* ---------- 소개 페이지 ---------- */
@@ -496,43 +535,37 @@ body {
   gap: 16px;
 }
 
-.gauge {
-  width: 116px;
-  height: 116px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  background: conic-gradient(var(--color-accent) calc(var(--pct, 0) * 1%), var(--color-line) 0);
-  flex-shrink: 0;
-}
-
-.gauge::before {
-  content: '';
-  position: absolute;
-  inset: 9px;
-  border-radius: 50%;
-  background: var(--color-surface);
-}
-
-.gauge .value {
-  position: relative;
+.score-info {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
 }
 
-.gauge .value .score-num {
+.score-main {
   font-family: var(--font-mono);
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.gauge .value .score-num small {
-  font-size: 11px;
+.score-main small {
+  font-size: 14px;
+  font-weight: 400;
   color: var(--color-ink-soft);
+}
+
+.score-desc {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.score-desc.warn {
+  color: var(--color-brick);
+  font-weight: 600;
 }
 
 .disclaimer {
@@ -560,11 +593,6 @@ body {
   gap: 6px;
 }
 
-.feature-item.excellent { background: rgba(79, 122, 85, 0.10); border-color: transparent; }
-.feature-item.ok        { background: rgba(124, 154, 114, 0.10); border-color: transparent; }
-.feature-item.caution   { background: rgba(211, 144, 63, 0.10); border-color: transparent; }
-.feature-item.warn      { background: rgba(183, 91, 68, 0.10); border-color: transparent; }
-
 .feature-item-head {
   display: flex;
   align-items: center;
@@ -578,25 +606,35 @@ body {
   text-transform: uppercase;
 }
 
-.feature-item-icon {
-  width: 32px;
-  height: 16px;
-  fill: none;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.feature-item.excellent .feature-item-icon { stroke: var(--color-excellent); }
-.feature-item.ok        .feature-item-icon { stroke: var(--color-sage); }
-.feature-item.caution   .feature-item-icon { stroke: var(--color-amber); }
-.feature-item.warn      .feature-item-icon { stroke: var(--color-brick); }
-
 .feature-item .num {
   font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
 }
+
+.feature-item .num small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-ink-soft);
+}
+
+.feature-item .bar-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-surface-warm);
+  overflow: hidden;
+}
+
+.feature-item .bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-accent);
+}
+
+.feature-item .bar-fill.excellent { background: var(--color-excellent); }
+.feature-item .bar-fill.ok        { background: var(--color-sage); }
+.feature-item .bar-fill.caution   { background: var(--color-amber); }
+.feature-item .bar-fill.warn      { background: var(--color-brick); }
 
 .section-card {
   background: var(--color-surface);
@@ -625,6 +663,14 @@ body {
 .badge.ok { background: rgba(124, 154, 114, 0.15); color: var(--color-sage); }
 .badge.warn { background: rgba(183, 91, 68, 0.12); color: var(--color-brick); }
 .badge.caution { background: rgba(211, 144, 63, 0.15); color: var(--color-amber); }
+/* 종합 점수 6단계 구간 중 4단계(경고/주의/양호/매우양호)는 위 색을 그대로 재사용하고,
+   나머지 2단계(전문의 진료 권고/백옥 피부 미녀)만 전용 스타일을 추가한다. */
+.badge.derm { background: rgba(183, 91, 68, 0.22); color: var(--color-brick); font-weight: 700; }
+.badge.top {
+  background: linear-gradient(135deg, var(--color-accent-soft), var(--color-rose));
+  color: var(--color-accent);
+  font-weight: 700;
+}
 
 /* ---------- 부위별 분석 (얼굴 다이어그램) ---------- */
 .face-diagram-wrap {
@@ -703,11 +749,12 @@ body {
 
 /* ---------- 참고 패턴(질환 의심) ---------- */
 .pattern-item {
-  border-top: 1px solid var(--color-line);
-  padding: 10px 0;
+  background: var(--color-bg);
+  border-radius: var(--radius-card-sm);
+  padding: 12px;
 }
 
-.pattern-item:first-child { border-top: none; padding-top: 0; }
+.pattern-item + .pattern-item { margin-top: 8px; }
 
 .pattern-item .pattern-head {
   display: flex;
@@ -739,6 +786,13 @@ body {
 }
 
 /* ---------- AI 소견 (구조화) ---------- */
+.ai-opinion-box {
+  background: var(--color-accent-soft);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 12px;
+  padding: 12px;
+}
+
 .ai-focus {
   font-family: var(--font-display);
   font-size: 15px;
@@ -959,3 +1013,97 @@ body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- 사용 방법 안내 팝업 ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(58, 43, 34, 0.55);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 60;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal-card {
+  width: 100%;
+  max-width: var(--max-width);
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: 28px 28px 0 0;
+  padding: 24px 20px 20px;
+  position: relative;
+  box-shadow: var(--shadow-card);
+}
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0 0 10px;
+  padding-right: 24px;
+}
+
+.modal-intro {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+  margin: 0 0 18px;
+}
+
+.guide-step {
+  margin-bottom: 16px;
+}
+
+.guide-step h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.guide-step p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-ink);
+  margin: 0 0 6px;
+}
+
+.guide-step p:last-child { margin-bottom: 0; }
+
+.guide-step ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-ink);
+}
+
+.guide-divider {
+  border: none;
+  border-top: 1px solid var(--color-line);
+  margin: 20px 0;
+}
+
+.guide-notice {
+  background: var(--color-accent-soft);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 0;
+}
+
+.guide-notice h3 { margin-top: 0; }
