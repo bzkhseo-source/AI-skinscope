@@ -237,6 +237,11 @@ def _load_age_gender_reference() -> dict:
     return _age_gender_reference_cache
 
 
+def _age_band(age: int) -> int:
+    """나이를 10년 단위 참고 구간(10~60)으로 변환한다."""
+    return min(max((age // 10) * 10, 10), 60)
+
+
 def _select_age_gender_group(
     age: Optional[int], gender: Optional[str]
 ) -> Tuple[Optional[dict], Optional[str]]:
@@ -250,7 +255,7 @@ def _select_age_gender_group(
         return None, None
 
     min_size = ref.get("min_group_size", 15)
-    age_band = min(max((age // 10) * 10, 10), 60)
+    age_band = _age_band(age)
 
     if gender in GENDER_LABEL_KO:
         group = ref.get("by_age_gender", {}).get(f"{age_band}_{gender}")
@@ -295,8 +300,24 @@ SKIN_AGE_MAX_RELIABLE_DIFF = 20
 SKIN_AGE_BASELINE_SCORE = 60
 # 기준 평균(SKIN_AGE_BASELINE_SCORE)에서 점수가 10점 벗어날 때마다 skin_age를
 # 이만큼(년) 가감한다. 예: 70점(+10점) -> age보다 5세 젊게, 50점(-10점) -> age보다
-# 5세 많게.
+# 5세 많게. 아래 SKIN_AGE_MAX_ADJUSTMENT_BY_BAND로 나이 구간별 상한을 두기
+# 전의 "1차" 조정폭이다.
 SKIN_AGE_YEARS_PER_10_POINTS = 5
+
+# 나이 구간(10년 단위)별로 허용하는 최대 보정폭(년). 10대는 피부가 이미
+# 생리학적으로 좋은 상태라 편차가 조금만 커도 위 1차 공식으로는 "0세"처럼
+# 비현실적인 값이 나올 수 있다(예: 15세가 90점 -> 보정 없이는 0세). 나이가
+# 어릴수록 보정 허용폭을 좁게, 많을수록 넓게 잡아 각 연령대에서 그럴듯한
+# 범위 안으로 결과를 눌러준다.
+SKIN_AGE_MAX_ADJUSTMENT_BY_BAND = {
+    10: 3,
+    20: 6,
+    30: 8,
+    40: 10,
+    50: 12,
+    60: 15,
+}
+SKIN_AGE_DEFAULT_MAX_ADJUSTMENT = 15
 
 
 def compute_skin_age(
@@ -309,7 +330,8 @@ def compute_skin_age(
     skin_age = age, 점수가 높을수록 더 젊게, 낮을수록 더 나이 들어 보이게
     조정). 항상 실제 나이를 출발점으로 삼으므로, 예전처럼 Gemini의 낙관적
     채점 때문에 나이와 무관하게 "가장 젊은 연령대"로 튀는 문제가 구조적으로
-    발생하지 않는다.
+    발생하지 않는다. 보정폭 자체도 나이 구간별 상한(SKIN_AGE_MAX_ADJUSTMENT_BY_BAND)
+    으로 눌러, 어린 나이대에서 0세에 가까운 비현실적인 결과가 나오지 않게 한다.
 
     age가 없는 경우: 기준으로 삼을 실제 나이가 없으므로, feature_scores와
     가장 가까운(유클리드 거리 최소) 연령대의 대표 나이를 독립적으로
@@ -320,7 +342,16 @@ def compute_skin_age(
     if age is not None:
         avg_score = sum(getattr(feature_scores, metric) for metric in metric_keys) / len(metric_keys)
         deviation = avg_score - SKIN_AGE_BASELINE_SCORE
-        skin_age = age - round(deviation / 10 * SKIN_AGE_YEARS_PER_10_POINTS)
+        raw_adjustment = deviation / 10 * SKIN_AGE_YEARS_PER_10_POINTS
+
+        max_adjustment = SKIN_AGE_MAX_ADJUSTMENT_BY_BAND.get(
+            _age_band(age), SKIN_AGE_DEFAULT_MAX_ADJUSTMENT
+        )
+        adjustment = max(-max_adjustment, min(max_adjustment, raw_adjustment))
+
+        skin_age = age - round(adjustment)
+        skin_age = max(skin_age, 1)  # 극단적으로 어린 나이 입력에 대한 최종 안전장치
+
         reliable = abs(skin_age - age) <= SKIN_AGE_MAX_RELIABLE_DIFF
         return skin_age, reliable
 
