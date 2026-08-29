@@ -238,6 +238,12 @@ function onPhotoCaptured(blob) {
 // (progressive enhancement — 자동 촬영은 있으면 좋은 기능일 뿐 필수가 아니다).
 const AUTO_CAPTURE_CHECK_INTERVAL_MS = 250;
 const AUTO_CAPTURE_HOLD_MS = 1000; // 정위치 상태가 이만큼 지속되면 자동 촬영
+// 얼굴 감지기가 특정 프레임에서만 일시적으로 에러를 던지는 경우가 실제로
+// 흔하다(예: MediaPipe의 타임스탬프 제약, 일부 안드로이드 기기의 ML Kit
+// 일시적 오류). 한 번의 에러로 자동 촬영 전체를 꺼버리면 그 세션 내내
+// 수동 촬영만 가능해지므로, 이 횟수만큼 연속으로 실패할 때만 감지기 자체가
+// 근본적으로 동작하지 않는다고 판단해 중단한다.
+const AUTO_CAPTURE_MAX_CONSECUTIVE_ERRORS = 8;
 const AUTO_CAPTURE_MIN_FACE_RATIO = 0.35; // 가이드 타원 면적 대비 얼굴 박스 최소 비율
 const MEDIAPIPE_VISION_URL =
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
@@ -334,11 +340,14 @@ function startAutoCaptureLoop() {
   initFaceDetection().then(() => {
     if (!faceDetectionMode || !state.stream) return; // 미지원 환경: 수동 셔터만 사용
 
+    let consecutiveErrors = 0;
+
     autoCaptureTimer = setInterval(async () => {
       if (state.capturedBlob || !state.stream) return;
       const video = document.getElementById("cameraVideo");
       try {
         const boxes = await detectFaceBoxes(video);
+        consecutiveErrors = 0;
         const wellPositioned = boxes.length > 0 && isFaceWellPositioned(boxes[0], video);
         setFaceAlignedIndicator(wellPositioned);
 
@@ -356,8 +365,13 @@ function startAutoCaptureLoop() {
           faceInPositionSince = null;
         }
       } catch (err) {
-        console.warn("얼굴 감지 중 오류가 발생해 자동 촬영을 중단합니다.", err);
-        stopAutoCaptureLoop();
+        faceInPositionSince = null;
+        setFaceAlignedIndicator(false);
+        consecutiveErrors += 1;
+        if (consecutiveErrors >= AUTO_CAPTURE_MAX_CONSECUTIVE_ERRORS) {
+          console.warn("얼굴 감지가 반복적으로 실패해 자동 촬영을 중단합니다.", err);
+          stopAutoCaptureLoop();
+        }
       }
     }, AUTO_CAPTURE_CHECK_INTERVAL_MS);
   });
