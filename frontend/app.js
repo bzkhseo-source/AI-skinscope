@@ -845,7 +845,10 @@ async function createShareUrl() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: getUserId() }),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn(`공유 링크 생성 실패(HTTP ${response.status}), 텍스트만 공유합니다.`);
+      return null;
+    }
     const { token } = await response.json();
     return `${location.origin}/share.html?token=${token}`;
   } catch (err) {

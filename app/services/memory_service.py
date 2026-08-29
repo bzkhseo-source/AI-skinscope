@@ -75,5 +75,13 @@ def compute_trend(records: List[SkinRecord]) -> Optional[TrendInfo]:
 
 
 def load_agent_result(record: SkinRecord) -> AgentResult:
-    """저장된 JSON을 다시 AgentResult 객체로 복원한다 (상세 조회용)."""
-    return AgentResult.model_validate(json.loads(record.result_json))
+    """저장된 JSON을 다시 AgentResult 객체로 복원한다 (상세 조회용).
+
+    save_record()가 호출되는 시점(분석 직후)에는 아직 DB에 커밋되지 않아
+    record.id를 알 수 없으므로, 저장되는 result_json 안의 record_id는 항상
+    None이다. 여기서 실제 DB row의 id로 채워 넣지 않으면, 이력 상세보기로
+    불러온 결과는 record_id가 계속 없는 것으로 취급되어 피드백 제출·공유
+    링크 생성처럼 record_id가 필요한 기능이 전부 동작하지 않는다.
+    """
+    agent_result = AgentResult.model_validate(json.loads(record.result_json))
+    return agent_result.model_copy(update={"record_id": record.id})
