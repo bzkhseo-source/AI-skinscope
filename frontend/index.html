@@ -8,6 +8,10 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <meta name="theme-color" content="#C97A5D" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="AI-SkinScope" />
+<meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css" />
@@ -201,6 +205,11 @@
         <div id="feedbackDone" style="display:none; font-size:12px; color:var(--color-sage); margin-top:6px;">
           소중한 의견 감사합니다!
         </div>
+      </div>
+
+      <div class="install-banner" id="installBanner" style="display:none">
+        <p id="installBannerText"></p>
+        <button class="install-banner-close" id="installBannerCloseBtn" type="button" aria-label="닫기">✕</button>
       </div>
 
       <button class="btn-secondary" id="newScanBtn">새로 스캔하기</button>

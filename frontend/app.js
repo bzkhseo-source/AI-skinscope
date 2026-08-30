@@ -789,6 +789,7 @@ function renderResult(result, thumbUrl) {
     hospitalCard.style.display = "none";
   }
 
+  updateInstallBanner();
   document.getElementById("resultReport").style.display = "flex";
 
   // 결과 전용 화면으로 전환 (탭바에는 없는 화면이므로 showScreen 대신 직접 처리)
@@ -995,6 +996,44 @@ function initUserIdField() {
   });
 }
 
+// ---------------- 홈 화면에 추가(PWA 설치) 안내 배너 ----------------
+// Android/Chrome은 beforeinstallprompt 이벤트로 설치를 유도할 수 있지만,
+// iOS Safari는 이 API 자체가 없어 사용자가 직접 "공유 버튼 → 홈 화면에
+// 추가" 경로를 찾아야 한다. 이 경로를 모르는 사용자가 많으므로, 두 플랫폼
+// 모두에게 안내 문구를 보여준다.
+const INSTALL_BANNER_DISMISSED_KEY = "skinscope_install_banner_dismissed";
+
+function isRunningStandalone() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+function updateInstallBanner() {
+  const banner = document.getElementById("installBanner");
+  if (isRunningStandalone() || localStorage.getItem(INSTALL_BANNER_DISMISSED_KEY) === "true") {
+    banner.style.display = "none";
+    return;
+  }
+
+  document.getElementById("installBannerText").textContent = isIOSDevice()
+    ? "홈 화면에 추가하고 더 빠르게 사용해보세요 — 하단 공유 버튼(⬆️)을 누른 뒤 \"홈 화면에 추가\"를 선택하세요."
+    : "홈 화면에 추가하고 더 빠르게 사용해보세요 — 브라우저 메뉴에서 \"홈 화면에 추가\" 또는 \"앱 설치\"를 선택하세요.";
+  banner.style.display = "flex";
+}
+
+function initInstallBanner() {
+  document.getElementById("installBannerCloseBtn").addEventListener("click", () => {
+    localStorage.setItem(INSTALL_BANNER_DISMISSED_KEY, "true");
+    document.getElementById("installBanner").style.display = "none";
+  });
+}
+
 // ---------------- 피드백 (FR-10) ----------------
 function resetFeedbackUI() {
   state.selectedRating = null;
@@ -1077,6 +1116,7 @@ function init() {
   initFeedback();
   initProfileInputs();
   initGuideModal();
+  initInstallBanner();
   initFaceDetection(); // 네트워크 로딩이 있어 카메라 시작 전에 미리 준비해둔다
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);
