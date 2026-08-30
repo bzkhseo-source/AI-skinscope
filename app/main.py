@@ -4,7 +4,7 @@ from sqlalchemy import inspect, text
 
 from app.models.database import Base, engine
 from app.models import record, share_link  # noqa: F401 - 테이블 등록을 위해 임포트 필요
-from app.routers import analyze, history, share
+from app.routers import analyze, chat, history, share, uv
 
 Base.metadata.create_all(bind=engine)
 
@@ -50,6 +50,8 @@ app.add_middleware(
 app.include_router(analyze.router)
 app.include_router(history.router)
 app.include_router(share.router)
+app.include_router(uv.router)
+app.include_router(chat.router)
 
 @app.get("/")
 def read_root():

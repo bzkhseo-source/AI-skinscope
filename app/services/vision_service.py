@@ -27,6 +27,13 @@ REGION_REFERENCE_PATH = (
 EMBEDDING_MODEL = "gemini-embedding-2"
 EMBEDDING_DIM = 768
 RAG_TOP_K = 5
+# 0으로 완전 고정하지 않는 이유: feature_scores 같은 숫자 항목은 안정시키되,
+# ai_summary/ai_focus/ai_detail 같은 자유 문장까지 기계적으로 똑같이
+# 반복되면 부자연스럽다. 0.3→0.15로 낮춰 재현성 테스트를 해봤으나 항목별로
+# 개선/악화가 엇갈리고 overall_score는 사실상 변화가 없어(둘 다 편차
+# 3~4점), temperature가 지배적 변수는 아닌 것으로 판단했다
+# (docs/SCORE_CONSISTENCY_TEST_LOG.md 참고). 0.2로 절충.
+GEMINI_TEMPERATURE = 0.2
 
 _reference_cache: List[dict] | None = None
 _measurement_cache: List[dict] | None = None
@@ -166,6 +173,16 @@ image_quality_ok가 true인 경우, regional_scores도 반드시 채워라. 얼�
 구역이 잘 보이지 않으면(예: 앞머리에 이마가 가려짐) 보이는 범위 내에서
 최선으로 추정하고 note에 그 사실을 언급하라. image_quality_ok가 false인
 경우 regional_scores는 채우지 마라(생략).
+
+image_quality_ok가 true인 경우, personal_color도 함께 판단하라. 사진에서
+관찰되는 피부 언더톤(웜톤/쿨톤/뉴트럴)을 근거로, 어울리는 립·블러셔 색상
+3~4개와 의상/헤어 색상 2~3개를 hex 코드로 제안하라. 반대로 피하면 좋은
+색상 1~2개도 제안하라. undertone 판단이 애매하면 season_label_ko는
+구체적 계절(예: "봄 웜톤") 대신 "웜톤"/"쿨톤"처럼 큰 분류까지만 제시하라.
+note에는 "사진 조명에 따라 오차가 있을 수 있는 참고용 결과"임을 반드시
+명시하라. 이 항목은 피부 건강 판단과 무관한 재미/참고용 기능이므로, 과도
+하게 단정적인 표현(예: "무조건 이 색상만")은 피하라. image_quality_ok가
+false인 경우 personal_color는 채우지 마라(생략).
 
 반드시 아래 JSON 스키마와 정확히 일치하는 JSON만 응답하라. 다른 텍스트를
 포함하지 마라.
@@ -640,6 +657,7 @@ def _call_gemini(
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=SkinAnalysisResult,
+            temperature=GEMINI_TEMPERATURE,
         ),
     )
     return response.text

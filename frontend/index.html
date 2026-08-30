@@ -65,6 +65,17 @@
       </div>
     </div>
 
+    <div class="uv-card" id="uvCard" style="display:none">
+      <span class="uv-badge" id="uvLevelBadge">-</span>
+      <div class="uv-info">
+        <div class="uv-index-row">
+          <span class="uv-label">현재 자외선 지수</span>
+          <span class="uv-index-value" id="uvIndexValue">-</span>
+        </div>
+        <p class="uv-advice" id="uvAdviceText"></p>
+      </div>
+    </div>
+
     <div class="viewfinder-wrap" id="viewfinderWrap">
       <video id="cameraVideo" autoplay playsinline muted></video>
       <img id="previewImg" class="preview" style="display:none" alt="촬영된 사진 미리보기" />
@@ -88,6 +99,7 @@
       </div>
     </div>
 
+    <p class="capture-condition-hint" id="captureConditionHint" style="display:none"></p>
     <div class="capture-controls">
       <button class="shutter-btn" id="shutterBtn" disabled aria-label="촬영"></button>
     </div>
@@ -174,6 +186,18 @@
         <div id="productRecoList"></div>
       </div>
 
+      <div class="section-card" id="personalColorCard" style="display:none">
+        <h3>당신에게 어울리는 컬러</h3>
+        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+          피부 건강 분석과는 무관한 참고용 재미 기능입니다. 사진 조명에 따라
+          결과가 달라질 수 있어요.
+        </p>
+        <div id="personalColorUndertone" class="personal-color-undertone"></div>
+        <div id="personalColorRecommended" class="color-swatch-group"></div>
+        <div id="personalColorAvoid" class="color-swatch-group avoid" style="display:none"></div>
+        <p id="personalColorNote" class="personal-color-note"></p>
+      </div>
+
       <div class="section-card" id="hospitalCard" style="display:none">
         <h3>근처 피부과</h3>
         <div id="hospitalList"></div>
@@ -189,6 +213,23 @@
           스크리닝 자료</strong>입니다. </br> 정확한 의학적 진단은 반드시 피부과 전문의와
           상담하시기 바랍니다.
         </p>
+      </div>
+
+      <div class="section-card" id="chatCard">
+        <h3>AI에게 물어보기</h3>
+        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+          AI가 생성한 참고용 답변입니다. 의료 진단·처방은 반드시 전문의와 상담하세요.
+        </p>
+        <div id="chatMessageList" class="chat-message-list"></div>
+        <div class="chat-suggestion-row" id="chatSuggestionRow">
+          <button class="chat-suggestion-chip" data-question="이 성분이 왜 좋아요?">이 성분이 왜 좋아요?</button>
+          <button class="chat-suggestion-chip" data-question="제 모공 점수가 낮게 나왔는데 어떻게 관리해야 하나요?">모공 점수가 낮은데 어떻게 관리해요?</button>
+          <button class="chat-suggestion-chip" data-question="각질 관리는 얼마나 자주 해야 하나요?">각질 관리는 얼마나 자주?</button>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="궁금한 점을 물어보세요" maxlength="300" aria-label="질문 입력" />
+          <button class="btn-primary chat-send-btn" id="chatSendBtn">전송</button>
+        </div>
       </div>
 
       <div class="section-card" id="feedbackCard">

@@ -48,6 +48,28 @@ class RegionalScores(BaseModel):
     chin: RegionScore = Field(..., description="턱")
 
 
+class ColorSwatch(BaseModel):
+    """퍼스널컬러 추천/회피 색상 하나"""
+
+    label_ko: str = Field(..., description="색상 이름 (예: '코랄 레드', '스카이 블루')")
+    hex: str = Field(..., description="HEX 색상 코드 (예: '#RRGGBB')")
+    category: str = Field(..., description="색상 용도 카테고리 (예: '립/블러셔', '의상', '헤어컬러')")
+
+
+class PersonalColorResult(BaseModel):
+    """퍼스널컬러(피부톤 어울리는 컬러) 참고용 진단 결과. 의료/건강 판단과 무관한 재미 요소."""
+
+    undertone: str = Field(..., description="피부 언더톤: 'warm' | 'cool' | 'neutral'")
+    season_label_ko: str = Field(
+        ..., description="봄 웜톤 등 시즌 라벨 (확신이 낮으면 '웜톤'/'쿨톤'처럼 웜/쿨까지만)"
+    )
+    recommended_colors: List[ColorSwatch] = Field(default_factory=list)
+    colors_to_avoid: List[ColorSwatch] = Field(default_factory=list)
+    note: str = Field(
+        ..., description="판단 근거 1문장 + 참고용 명시 ('사진 조명에 따라 오차가 있을 수 있는 참고용 결과')"
+    )
+
+
 class SkinAnalysisResult(BaseModel):
     """Gemini Vision 분석 결과 전체"""
 
@@ -88,4 +110,8 @@ class SkinAnalysisResult(BaseModel):
     regional_scores: Optional[RegionalScores] = Field(
         default=None,
         description="이마/코(T존)/왼쪽볼/오른쪽볼/턱 5개 구역별 세부 분석 (모공/유분/트러블)",
+    )
+    personal_color: Optional[PersonalColorResult] = Field(
+        default=None,
+        description="퍼스널컬러 참고용 추천 (피부 건강 판단과 무관한 재미/참고 기능)",
     )

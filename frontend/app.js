@@ -81,6 +81,7 @@ function initConsent() {
   if (localStorage.getItem(CONSENT_STORAGE_KEY) === "true") {
     applyConsentGiven();
     startCamera();
+    initUvCard();
   }
 
   checkbox.addEventListener("change", () => {
@@ -93,6 +94,7 @@ function initConsent() {
       localStorage.setItem(CONSENT_STORAGE_KEY, "true");
       document.getElementById("consentCard").style.display = "none";
       startCamera();
+      initUvCard();
     } else {
       stopCamera();
     }
@@ -125,6 +127,7 @@ function applyCameraStream(stream) {
   updateMirrorPreview();
   showCameraError(false);
   startAutoCaptureLoop();
+  startCaptureGuideLoop();
 
   stream.getVideoTracks().forEach((track) => {
     track.addEventListener("ended", () => {
@@ -181,6 +184,7 @@ function stopCamera() {
   }
   document.getElementById("viewfinderWrap").classList.remove("scanning");
   stopAutoCaptureLoop();
+  stopCaptureGuideLoop();
 }
 
 async function switchCamera() {
@@ -257,6 +261,9 @@ let faceDetectionMode = null; // "native" | "mediapipe" | null(미지원 -> 수�
 let faceDetectionInitPromise = null;
 let autoCaptureTimer = null;
 let faceInPositionSince = null;
+// 촬영 조건 실시간 안내(거리 체크)가 얼굴 인식을 별도로 다시 돌리지 않고
+// 이 값을 재사용할 수 있도록, 자동 촬영 루프가 매 tick마다 갱신해둔다.
+let lastFaceRatio = null;
 
 async function initFaceDetection() {
   if (faceDetectionInitPromise) return faceDetectionInitPromise;
@@ -322,6 +329,8 @@ function isFaceWellPositioned(box, video) {
   const guideCenterY = videoH * 0.44;
 
   const faceRatio = (box.width * box.height) / (guideW * guideH);
+  lastFaceRatio = faceRatio; // 촬영 조건 안내(거리 체크)가 재사용
+
   const faceCenterX = box.x + box.width / 2;
   const faceCenterY = box.y + box.height / 2;
   const centeredX = Math.abs(faceCenterX - guideCenterX) < guideW * 0.35;
@@ -348,6 +357,7 @@ function startAutoCaptureLoop() {
       try {
         const boxes = await detectFaceBoxes(video);
         consecutiveErrors = 0;
+        if (boxes.length === 0) lastFaceRatio = null;
         const wellPositioned = boxes.length > 0 && isFaceWellPositioned(boxes[0], video);
         setFaceAlignedIndicator(wellPositioned);
 
@@ -383,7 +393,94 @@ function stopAutoCaptureLoop() {
     autoCaptureTimer = null;
   }
   faceInPositionSince = null;
+  lastFaceRatio = null;
   setFaceAlignedIndicator(false);
+}
+
+// ---------------- 촬영 조건 실시간 안내 (밝기·거리, 소프트 가이드) ----------------
+// 촬영 자체를 막지 않는다 — 매번 비슷한 조건으로 찍도록 유도하는 참고용
+// 안내일 뿐이며, 이 안내가 있어도 셔터 버튼은 항상 눌러진다.
+const CAPTURE_GUIDE_CHECK_INTERVAL_MS = 500;
+const BRIGHTNESS_THRESHOLD = 80; // 0~255 평균 밝기 기준(경험적)
+const FACE_TOO_FAR_RATIO = 0.15; // 이보다 작으면 얼굴이 가이드 대비 너무 작음(멀다)
+const FACE_TOO_CLOSE_RATIO = 0.9; // 이보다 크면 너무 큼(가깝다)
+
+let captureGuideTimer = null;
+let brightnessSampleCanvas = null;
+
+function computeAverageBrightness(video) {
+  if (!video.videoWidth || !video.videoHeight) return null;
+  if (!brightnessSampleCanvas) brightnessSampleCanvas = document.createElement("canvas");
+
+  // 픽셀 단위 정확도가 필요 없으므로 아주 작게 리사이즈해 성능 부담을 줄인다.
+  const sampleW = 40;
+  const sampleH = 30;
+  brightnessSampleCanvas.width = sampleW;
+  brightnessSampleCanvas.height = sampleH;
+  const ctx = brightnessSampleCanvas.getContext("2d", { willReadFrequently: true });
+
+  let data;
+  try {
+    ctx.drawImage(video, 0, 0, sampleW, sampleH);
+    data = ctx.getImageData(0, 0, sampleW, sampleH).data;
+  } catch (err) {
+    return null; // 드문 보안/브라우저 제약으로 실패해도 조용히 건너뛴다
+  }
+
+  let sum = 0;
+  const pixelCount = sampleW * sampleH;
+  for (let i = 0; i < data.length; i += 4) {
+    sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  return sum / pixelCount;
+}
+
+function setCaptureConditionHint(text) {
+  const el = document.getElementById("captureConditionHint");
+  if (!el) return;
+  if (text) {
+    el.textContent = text;
+    el.style.display = "block";
+  } else {
+    el.style.display = "none";
+  }
+}
+
+function startCaptureGuideLoop() {
+  stopCaptureGuideLoop();
+  captureGuideTimer = setInterval(() => {
+    if (state.capturedBlob || !state.stream) return;
+
+    const video = document.getElementById("cameraVideo");
+    const brightness = computeAverageBrightness(video);
+    if (brightness !== null && brightness < BRIGHTNESS_THRESHOLD) {
+      setCaptureConditionHint("조금 더 밝은 곳에서 찍어주세요");
+      return;
+    }
+
+    // 거리 체크는 자동 촬영(로드맵 C)이 지원되는 환경에서만 가능하다 —
+    // lastFaceRatio가 없으면(미지원/얼굴 미검출) 밝기만으로 안내한다.
+    if (lastFaceRatio !== null) {
+      if (lastFaceRatio < FACE_TOO_FAR_RATIO) {
+        setCaptureConditionHint("조금 더 가까이서 찍어주세요");
+        return;
+      }
+      if (lastFaceRatio > FACE_TOO_CLOSE_RATIO) {
+        setCaptureConditionHint("조금 더 멀리서 찍어주세요");
+        return;
+      }
+    }
+
+    setCaptureConditionHint(null);
+  }, CAPTURE_GUIDE_CHECK_INTERVAL_MS);
+}
+
+function stopCaptureGuideLoop() {
+  if (captureGuideTimer) {
+    clearInterval(captureGuideTimer);
+    captureGuideTimer = null;
+  }
+  setCaptureConditionHint(null);
 }
 
 function resetCaptureUI() {
@@ -456,6 +553,45 @@ function getLocation() {
   });
 }
 
+// 자외선 지수 카드 추가로 위치 요청 빈도가 늘어나므로, 이 브라우저에서
+// 처음 위치를 요청하기 직전에 한 번만 용도를 안내한다.
+const LOCATION_NOTICE_KEY = "skinscope_location_notice_shown";
+
+function getLocationWithNotice() {
+  if (!localStorage.getItem(LOCATION_NOTICE_KEY)) {
+    localStorage.setItem(LOCATION_NOTICE_KEY, "true");
+    alert(
+      "위치 정보는 근처 피부과 검색과 자외선 지수 조회에만 사용되며, 서버에 저장되지 않습니다."
+    );
+  }
+  return getLocation();
+}
+
+// ---------------- 자외선 지수 (선택, 위치정보 있을 때만) ----------------
+function renderUvCard(uv) {
+  const badge = document.getElementById("uvLevelBadge");
+  badge.textContent = uv.level_label_ko;
+  badge.className = `uv-badge ${uv.level}`;
+  document.getElementById("uvIndexValue").textContent = uv.uv_index.toFixed(1);
+  document.getElementById("uvAdviceText").textContent = uv.advice;
+  document.getElementById("uvCard").style.display = "flex";
+}
+
+async function initUvCard() {
+  try {
+    const location = await getLocationWithNotice();
+    if (!location) return;
+
+    const response = await fetch(
+      `${API_BASE}/uv-index?latitude=${location.lat}&longitude=${location.lng}`
+    );
+    if (!response.ok) return; // 키 미설정·조회 실패는 선택 기능이므로 조용히 무시
+    renderUvCard(await response.json());
+  } catch (err) {
+    console.warn("자외선 지수 조회 실패:", err);
+  }
+}
+
 // ---------------- 분석 요청 ----------------
 async function submitAnalysis() {
   if (!state.capturedBlob) return;
@@ -464,7 +600,7 @@ async function submitAnalysis() {
   loadingOverlay.classList.add("active");
 
   try {
-    const location = await getLocation();
+    const location = await getLocationWithNotice();
 
     const formData = new FormData();
     formData.append("file", state.capturedBlob, "capture.jpg");
@@ -554,12 +690,58 @@ function splitEfficacyToBullets(text, maxLines) {
     .slice(0, maxLines);
 }
 
+// ---------------- 퍼스널컬러 (참고용) ----------------
+const UNDERTONE_LABELS = { warm: "웜톤", cool: "쿨톤", neutral: "뉴트럴" };
+
+function renderColorSwatchGroup(container, colors) {
+  container.innerHTML = "";
+  colors.forEach((c) => {
+    const swatch = document.createElement("div");
+    swatch.className = "color-swatch";
+    swatch.innerHTML = `
+      <div class="swatch-chip" style="background:${c.hex}"></div>
+      <span class="swatch-label">${c.label_ko}</span>
+      <span class="swatch-hex">${c.hex}</span>
+    `;
+    container.appendChild(swatch);
+  });
+}
+
+function renderPersonalColor(personalColor) {
+  const card = document.getElementById("personalColorCard");
+  if (!personalColor) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+
+  const undertoneEl = document.getElementById("personalColorUndertone");
+  undertoneEl.textContent =
+    personalColor.season_label_ko || UNDERTONE_LABELS[personalColor.undertone] || personalColor.undertone;
+
+  renderColorSwatchGroup(
+    document.getElementById("personalColorRecommended"),
+    personalColor.recommended_colors || []
+  );
+
+  const avoidGroup = document.getElementById("personalColorAvoid");
+  if (personalColor.colors_to_avoid && personalColor.colors_to_avoid.length > 0) {
+    avoidGroup.style.display = "flex";
+    renderColorSwatchGroup(avoidGroup, personalColor.colors_to_avoid);
+  } else {
+    avoidGroup.style.display = "none";
+  }
+
+  document.getElementById("personalColorNote").textContent = personalColor.note || "";
+}
+
 function renderResult(result, thumbUrl) {
   const vision = result.vision;
   state.currentRecordId = result.record_id || null;
   state.currentVision = vision;
   state.currentNeedsDermatologist = result.needs_dermatologist;
   resetFeedbackUI();
+  resetChatUI();
 
   // 게이지 카드 안의 사진 썸네일 (품질 실패 시에는 resultReport 자체가 숨겨진다)
   const resultThumb = document.getElementById("resultThumb");
@@ -769,6 +951,8 @@ function renderResult(result, thumbUrl) {
   } else {
     productRecoCard.style.display = "none";
   }
+
+  renderPersonalColor(vision.personal_color);
 
   const hospitalCard = document.getElementById("hospitalCard");
   const hospitalList = document.getElementById("hospitalList");
@@ -1082,6 +1266,68 @@ function initFeedback() {
   });
 }
 
+// ---------------- AI에게 물어보기 (챗봇, 로드맵 L) ----------------
+function resetChatUI() {
+  document.getElementById("chatMessageList").innerHTML = "";
+  document.getElementById("chatInput").value = "";
+  document.getElementById("chatCard").style.display = state.currentRecordId ? "block" : "none";
+}
+
+function appendChatMessage(role, text) {
+  const list = document.getElementById("chatMessageList");
+  const el = document.createElement("div");
+  el.className = `chat-message ${role}`;
+  if (role === "ai") {
+    el.innerHTML = `<span class="chat-ai-badge">AI 생성 참고용 답변</span>${text}`;
+  } else {
+    el.textContent = text;
+  }
+  list.appendChild(el);
+  list.scrollTop = list.scrollHeight;
+  return el;
+}
+
+async function sendChatMessage(question) {
+  const trimmed = (question || "").trim();
+  if (!trimmed || !state.currentRecordId) return;
+
+  document.getElementById("chatInput").value = "";
+  appendChatMessage("user", trimmed);
+  const pendingEl = appendChatMessage("ai", "답변을 준비하고 있어요...");
+  pendingEl.classList.add("pending");
+
+  try {
+    const response = await fetch(`${API_BASE}/analyze/${state.currentRecordId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: getUserId(), question: trimmed }),
+    });
+    if (!response.ok) throw new Error(`요청 실패 (${response.status})`);
+    const data = await response.json();
+
+    pendingEl.classList.remove("pending");
+    pendingEl.innerHTML = `<span class="chat-ai-badge">AI 생성 참고용 답변</span>${data.answer}`;
+  } catch (err) {
+    pendingEl.classList.remove("pending");
+    pendingEl.innerHTML =
+      '<span class="chat-ai-badge">AI 생성 참고용 답변</span>지금은 답변이 어려워요, 잠시 후 다시 시도해주세요.';
+    console.error(err);
+  }
+}
+
+function initChat() {
+  document.getElementById("chatSendBtn").addEventListener("click", () => {
+    sendChatMessage(document.getElementById("chatInput").value);
+  });
+  document.getElementById("chatInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendChatMessage(document.getElementById("chatInput").value);
+  });
+  document.getElementById("chatSuggestionRow").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chat-suggestion-chip");
+    if (chip) sendChatMessage(chip.dataset.question);
+  });
+}
+
 // ---------------- 사용 방법 안내 팝업 ----------------
 const GUIDE_SEEN_STORAGE_KEY = "skinscope_guide_seen";
 
@@ -1114,6 +1360,7 @@ function init() {
   initConsent();
   initUserIdField();
   initFeedback();
+  initChat();
   initProfileInputs();
   initGuideModal();
   initInstallBanner();
