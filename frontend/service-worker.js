@@ -37,7 +37,8 @@ self.addEventListener("fetch", (event) => {
   if (
     url.pathname.startsWith("/analyze") ||
     url.pathname.startsWith("/history") ||
-    url.pathname.startsWith("/share/")
+    url.pathname.startsWith("/share/") ||
+    url.pathname.startsWith("/uv-index")
   ) {
     return;
   }

@@ -1273,12 +1273,23 @@ function resetChatUI() {
   document.getElementById("chatCard").style.display = state.currentRecordId ? "block" : "none";
 }
 
+function renderAiMessage(el, text) {
+  // AI 응답(RAG 검색 결과 포함)은 신뢰할 수 없는 텍스트로 취급해 innerHTML이
+  // 아닌 textContent로 삽입한다 — 배지만 별도 엘리먼트로 만들어 붙인다(XSS 방지).
+  el.innerHTML = "";
+  const badge = document.createElement("span");
+  badge.className = "chat-ai-badge";
+  badge.textContent = "AI 생성 참고용 답변";
+  el.appendChild(badge);
+  el.appendChild(document.createTextNode(text));
+}
+
 function appendChatMessage(role, text) {
   const list = document.getElementById("chatMessageList");
   const el = document.createElement("div");
   el.className = `chat-message ${role}`;
   if (role === "ai") {
-    el.innerHTML = `<span class="chat-ai-badge">AI 생성 참고용 답변</span>${text}`;
+    renderAiMessage(el, text);
   } else {
     el.textContent = text;
   }
@@ -1306,11 +1317,10 @@ async function sendChatMessage(question) {
     const data = await response.json();
 
     pendingEl.classList.remove("pending");
-    pendingEl.innerHTML = `<span class="chat-ai-badge">AI 생성 참고용 답변</span>${data.answer}`;
+    renderAiMessage(pendingEl, data.answer);
   } catch (err) {
     pendingEl.classList.remove("pending");
-    pendingEl.innerHTML =
-      '<span class="chat-ai-badge">AI 생성 참고용 답변</span>지금은 답변이 어려워요, 잠시 후 다시 시도해주세요.';
+    renderAiMessage(pendingEl, "지금은 답변이 어려워요, 잠시 후 다시 시도해주세요.");
     console.error(err);
   }
 }

@@ -41,20 +41,25 @@ def search_nearby_dermatology_clinics(
         )
         response.raise_for_status()
         data = response.json()
-    except httpx.HTTPError as exc:
+
+        hospitals: List[HospitalInfo] = []
+        for doc in data.get("documents", []):
+            distance_raw = doc.get("distance")
+            hospitals.append(
+                HospitalInfo(
+                    name=doc.get("place_name", ""),
+                    address=doc.get("road_address_name") or doc.get("address_name", ""),
+                    phone=doc.get("phone", ""),
+                    distance_m=int(distance_raw) if distance_raw else None,
+                    place_url=doc.get("place_url", ""),
+                )
+            )
+        return hospitals
+    except (httpx.HTTPError, KeyError, ValueError, TypeError, AttributeError) as exc:
+        # httpx.HTTPError: 네트워크/상태코드 오류. KeyError/ValueError/TypeError/
+        # AttributeError: 200 응답이지만 JSON 파싱 실패나 예상 밖의 응답 형식(예:
+        # "documents"가 없거나 배열이 아님) — 이 도구 호출 실패가 이미 완료된
+        # 피부 분석 결과 전체를 죽이지 않도록 반드시 여기서 잡아서 빈 리스트로
+        # degrade 시킨다 (uv_service.py와 동일한 패턴).
         logger.warning("카카오맵 검색 실패: %s", exc)
         return []
-
-    hospitals: List[HospitalInfo] = []
-    for doc in data.get("documents", []):
-        distance_raw = doc.get("distance")
-        hospitals.append(
-            HospitalInfo(
-                name=doc.get("place_name", ""),
-                address=doc.get("road_address_name") or doc.get("address_name", ""),
-                phone=doc.get("phone", ""),
-                distance_m=int(distance_raw) if distance_raw else None,
-                place_url=doc.get("place_url", ""),
-            )
-        )
-    return hospitals
