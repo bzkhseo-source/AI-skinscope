@@ -289,26 +289,6 @@ def _select_age_gender_group(
     return None, None
 
 
-def _age_band_score_profile(age_band_key: str) -> Optional[dict]:
-    """특정 연령대 그룹의 중앙값을, 전체 인구 백분위 기준 0~100 점수로 환산한다.
-
-    피부나이 계산 시 사용자의 feature_scores(이미 0~100 스케일)와 같은
-    스케일에서 비교하기 위해 필요하다.
-    """
-    ref = _load_age_gender_reference()
-    group = ref.get("by_age_band", {}).get(age_band_key)
-    if not group:
-        return None
-
-    profile = {}
-    for metric, (percentiles, higher_is_better) in FEATURE_METRIC_PERCENTILES.items():
-        stats = group.get(metric)
-        if not stats:
-            return None
-        profile[metric] = _interp_score(stats["p50"], percentiles, higher_is_better)
-    return profile
-
-
 # skin_age와 입력 age의 차이가 이 값을 넘으면 신뢰할 수 없는 결과로 표시한다.
 SKIN_AGE_MAX_RELIABLE_DIFF = 20
 # feature_scores 평균이 이 점수(=종합 점수 6단계 구간의 기준 평균과 동일)일 때
@@ -339,63 +319,40 @@ SKIN_AGE_DEFAULT_MAX_ADJUSTMENT = 15
 
 def compute_skin_age(
     feature_scores: SkinFeatureScores, age: Optional[int] = None
-) -> Tuple[Optional[int], bool]:
+) -> Tuple[Optional[int], Optional[bool]]:
     """피부나이를 계산한다.
 
-    age가 주어진 경우: feature_scores 평균이 "기준 평균 60점"에서 벗어난
-    정도에 비례해 실제 나이를 가감한다(60점 = 평균적인 피부 상태이므로
-    skin_age = age, 점수가 높을수록 더 젊게, 낮을수록 더 나이 들어 보이게
-    조정). 항상 실제 나이를 출발점으로 삼으므로, 예전처럼 Gemini의 낙관적
-    채점 때문에 나이와 무관하게 "가장 젊은 연령대"로 튀는 문제가 구조적으로
-    발생하지 않는다. 보정폭 자체도 나이 구간별 상한(SKIN_AGE_MAX_ADJUSTMENT_BY_BAND)
-    으로 눌러, 어린 나이대에서 0세에 가까운 비현실적인 결과가 나오지 않게 한다.
+    feature_scores 평균이 "기준 평균 60점"에서 벗어난 정도에 비례해 실제
+    나이를 가감한다(60점 = 평균적인 피부 상태이므로 skin_age = age, 점수가
+    높을수록 더 젊게, 낮을수록 더 나이 들어 보이게 조정). 항상 실제 나이를
+    출발점으로 삼으므로, 예전처럼 Gemini의 낙관적 채점 때문에 나이와 무관하게
+    "가장 젊은 연령대"로 튀는 문제가 구조적으로 발생하지 않는다. 보정폭
+    자체도 나이 구간별 상한(SKIN_AGE_MAX_ADJUSTMENT_BY_BAND)으로 눌러, 어린
+    나이대에서 0세에 가까운 비현실적인 결과가 나오지 않게 한다.
 
-    age가 없는 경우: 기준으로 삼을 실제 나이가 없으므로, feature_scores와
-    가장 가까운(유클리드 거리 최소) 연령대의 대표 나이를 독립적으로
-    추정한다(참고 데이터가 없으면 None).
+    age가 입력되지 않으면 기준으로 삼을 실제 나이가 없어 계산 자체가
+    불가능하므로, (None, True)를 반환한다 — 사용자 나이 없이 독립적으로
+    "느낌상 나이"를 추정해 보여주는 것은 오히려 오해를 줄 수 있어 만들지
+    않는다.
     """
+    if age is None:
+        return None, None
+
     metric_keys = list(FEATURE_METRIC_PERCENTILES)
+    avg_score = sum(getattr(feature_scores, metric) for metric in metric_keys) / len(metric_keys)
+    deviation = avg_score - SKIN_AGE_BASELINE_SCORE
+    raw_adjustment = deviation / 10 * SKIN_AGE_YEARS_PER_10_POINTS
 
-    if age is not None:
-        avg_score = sum(getattr(feature_scores, metric) for metric in metric_keys) / len(metric_keys)
-        deviation = avg_score - SKIN_AGE_BASELINE_SCORE
-        raw_adjustment = deviation / 10 * SKIN_AGE_YEARS_PER_10_POINTS
+    max_adjustment = SKIN_AGE_MAX_ADJUSTMENT_BY_BAND.get(
+        _age_band(age), SKIN_AGE_DEFAULT_MAX_ADJUSTMENT
+    )
+    adjustment = max(-max_adjustment, min(max_adjustment, raw_adjustment))
 
-        max_adjustment = SKIN_AGE_MAX_ADJUSTMENT_BY_BAND.get(
-            _age_band(age), SKIN_AGE_DEFAULT_MAX_ADJUSTMENT
-        )
-        adjustment = max(-max_adjustment, min(max_adjustment, raw_adjustment))
+    skin_age = age - round(adjustment)
+    skin_age = max(skin_age, 1)  # 극단적으로 어린 나이 입력에 대한 최종 안전장치
 
-        skin_age = age - round(adjustment)
-        skin_age = max(skin_age, 1)  # 극단적으로 어린 나이 입력에 대한 최종 안전장치
-
-        reliable = abs(skin_age - age) <= SKIN_AGE_MAX_RELIABLE_DIFF
-        return skin_age, reliable
-
-    ref = _load_age_gender_reference()
-    by_age_band = ref.get("by_age_band", {})
-    if not by_age_band:
-        return None, True
-
-    user_vec = {metric: getattr(feature_scores, metric) for metric in metric_keys}
-
-    best_band: Optional[int] = None
-    best_distance: Optional[float] = None
-    for age_band_key in by_age_band:
-        profile = _age_band_score_profile(age_band_key)
-        if profile is None:
-            continue
-        distance = math.sqrt(
-            sum((user_vec[metric] - profile[metric]) ** 2 for metric in metric_keys)
-        )
-        if best_distance is None or distance < best_distance:
-            best_distance = distance
-            best_band = int(age_band_key)
-
-    if best_band is None:
-        return None, True
-
-    return best_band + 5, True  # 구간 대표값(예: "20대" 구간 -> 25세)으로 근사
+    reliable = abs(skin_age - age) <= SKIN_AGE_MAX_RELIABLE_DIFF
+    return skin_age, reliable
 
 
 def build_peer_comparison_note(

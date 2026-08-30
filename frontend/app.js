@@ -879,8 +879,8 @@ function renderResult(result, thumbUrl) {
   }
 
   const skinAgeBadge = document.getElementById("skinAgeBadge");
+  skinAgeBadge.style.display = "inline-block";
   if (result.skin_age) {
-    skinAgeBadge.style.display = "inline-block";
     if (result.skin_age_reliable === false) {
       skinAgeBadge.textContent = "피부나이 참고용 (데이터 부족)";
       skinAgeBadge.classList.add("muted");
@@ -891,7 +891,8 @@ function renderResult(result, thumbUrl) {
       skinAgeBadge.classList.remove("muted");
     }
   } else {
-    skinAgeBadge.style.display = "none";
+    skinAgeBadge.textContent = "실제 나이가 입력되지 않아 분석할 수 없습니다";
+    skinAgeBadge.classList.add("muted");
   }
 
   const peerNoteEl = document.getElementById("aiPeerNoteText");
