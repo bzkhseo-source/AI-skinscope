@@ -41,7 +41,7 @@
 
     <div class="consent-card" id="consentCard">
       <strong>촬영 전 확인해주세요</strong>
-      <p style="margin:8px 0 0">
+      <p>
         촬영한 사진은 AI 분석 및 이력 저장 목적으로만 사용되며,
         서버에 암호화되어 저장됩니다. 언제든 이력 화면에서 삭제를 요청할 수 있습니다.
         분석 결과는 <strong>의료 진단이 아닌 참고용 스크리닝</strong>입니다.
@@ -65,7 +65,7 @@
       </div>
     </div>
 
-    <div class="uv-card" id="uvCard" style="display:none">
+    <div class="uv-card" id="uvCard">
       <span class="uv-badge" id="uvLevelBadge">-</span>
       <div class="uv-info">
         <div class="uv-index-row">
@@ -78,7 +78,7 @@
 
     <div class="viewfinder-wrap" id="viewfinderWrap">
       <video id="cameraVideo" autoplay playsinline muted></video>
-      <img id="previewImg" class="preview" style="display:none" alt="촬영된 사진 미리보기" />
+      <img id="previewImg" class="preview" alt="촬영된 사진 미리보기" />
       <button class="camera-switch-btn" id="cameraSwitchBtn" aria-label="전/후면 카메라 전환" disabled>
         ⟳
       </button>
@@ -93,37 +93,37 @@
       <div class="capture-guide-text">
         밝은 곳에서 얼굴이 타원 안에 오도록, 30cm 정도 거리를 두고 정면에서 촬영해주세요
       </div>
-      <div class="camera-error" id="cameraErrorOverlay" style="display:none">
+      <div class="camera-error" id="cameraErrorOverlay">
         <p>카메라를 불러오지 못했습니다.<br />브라우저의 카메라 접근을 허용했는지 확인해주세요.</p>
         <button class="btn-primary" id="cameraRetryBtn" type="button">다시 시도</button>
       </div>
     </div>
 
-    <p class="capture-condition-hint" id="captureConditionHint" style="display:none"></p>
+    <p class="capture-condition-hint hidden" id="captureConditionHint"></p>
     <div class="capture-controls">
       <button class="shutter-btn" id="shutterBtn" disabled aria-label="촬영"></button>
     </div>
     <button class="file-btn" id="fileTriggerBtn" disabled>갤러리에서 사진 선택</button>
-    <input type="file" id="fileInput" accept="image/*" style="display:none" />
+    <input type="file" id="fileInput" accept="image/*" class="hidden" aria-label="갤러리에서 사진 선택" />
 
-    <button class="btn-primary" id="analyzeBtn" style="display:none">이 사진으로 분석하기</button>
-    <button class="btn-secondary" id="retakeBtn" style="display:none">다시 촬영</button>
+    <button class="btn-primary hidden" id="analyzeBtn">이 사진으로 분석하기</button>
+    <button class="btn-secondary hidden" id="retakeBtn">다시 촬영</button>
   </section>
 
   <!-- ============ 화면 2: 결과 (촬영/이력 상세에서 진입) ============ -->
   <section id="screen-result" class="screen">
 
-    <div id="qualityIssueCard" class="section-card" style="display:none">
+    <div id="qualityIssueCard" class="section-card hidden">
       <h3>사진을 다시 촬영해주세요</h3>
-      <p id="qualityIssueText" style="font-size:13px; line-height:1.6; margin:0 0 12px;"></p>
-      <button class="btn-primary" id="retryFromResultBtn" style="width:100%">다시 촬영하기</button>
+      <p id="qualityIssueText" class="quality-issue-text"></p>
+      <button class="btn-primary btn-block" id="retryFromResultBtn">다시 촬영하기</button>
     </div>
 
-    <div id="resultReport" style="display:none; display:flex; flex-direction:column; gap:14px;">
+    <div id="resultReport" class="result-report">
       <div class="gauge-card">
         <img id="resultThumb" class="score-thumb-img" alt="분석한 사진" />
         <div class="score-info">
-          <span class="skin-age-badge" id="skinAgeBadge" style="display:none"></span>
+          <span class="skin-age-badge" id="skinAgeBadge"></span>
           <div class="score-main"><span id="scoreValue">0</span><small>/100점</small></div>
           <span class="badge ok" id="scoreTierBadge">양호</span>
           <p class="score-desc" id="scoreDescText"></p>
@@ -132,7 +132,7 @@
 
       <div class="feature-grid" id="featureGrid"></div>
 
-      <div class="section-card" id="regionalCard" style="display:none">
+      <div class="section-card hidden" id="regionalCard">
         <h3>부위별 분석</h3>
         <div class="face-diagram-wrap">
           <svg viewBox="0 0 200 240" class="face-diagram-svg" aria-hidden="true">
@@ -158,7 +158,7 @@
 
       <div class="section-card" id="patternsCard">
         <h3>SKIN 패턴 분석</h3>
-        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+        <p class="section-subtext">
           SKIN 이미지 분석에서 관찰된 패턴 결과입니다.
         </p>
         <div id="patternsList"></div>
@@ -167,10 +167,10 @@
       <div class="section-card">
         <h3>AI 피부 스캐닝 소견</h3>
         <div class="ai-opinion-box">
-          <p class="ai-focus" id="aiFocusText" style="display:none"></p>
+          <p class="ai-focus hidden" id="aiFocusText"></p>
           <p class="ai-detail" id="aiDetailText"></p>
         </div>
-        <p class="ai-peer-note" id="aiPeerNoteText" style="display:none"></p>
+        <p class="ai-peer-note hidden" id="aiPeerNoteText"></p>
       </div>
 
       <div class="section-card" id="careTipsCard">
@@ -178,27 +178,27 @@
         <ul id="careTipsList"></ul>
       </div>
 
-      <div class="section-card" id="productRecoCard" style="display:none">
+      <div class="section-card hidden" id="productRecoCard">
         <h3>맞춤 추천 성분 & 화장품 연동</h3>
-        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+        <p class="section-subtext">
           스킨케어 성분-효능 데이터를 근거로 한 추천 성분으로 본인 피부 반응을 꼭 확인하세요.
         </p>
         <div id="productRecoList"></div>
       </div>
 
-      <div class="section-card" id="personalColorCard" style="display:none">
+      <div class="section-card hidden" id="personalColorCard">
         <h3>당신에게 어울리는 컬러</h3>
-        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+        <p class="section-subtext">
           피부 건강 분석과는 무관한 참고용 재미 기능입니다. 사진 조명에 따라
           결과가 달라질 수 있어요.
         </p>
         <div id="personalColorUndertone" class="personal-color-undertone"></div>
         <div id="personalColorRecommended" class="color-swatch-group"></div>
-        <div id="personalColorAvoid" class="color-swatch-group avoid" style="display:none"></div>
+        <div id="personalColorAvoid" class="color-swatch-group avoid"></div>
         <p id="personalColorNote" class="personal-color-note"></p>
       </div>
 
-      <div class="section-card" id="hospitalCard" style="display:none">
+      <div class="section-card hidden" id="hospitalCard">
         <h3>근처 피부과</h3>
         <div id="hospitalList"></div>
       </div>
@@ -207,7 +207,7 @@
 
       <div class="section-card">
         <h3>이 결과는 어떻게 만들어졌나요?</h3>
-        <p style="font-size:12px; line-height:1.6; color:var(--color-ink-soft); margin:0;">
+        <p class="section-subtext">
           본 분석 결과는 AI Hub의 피부 관련 데이터베이스(안면부 질환 이미지 12,000장 및
           한국인 실측 데이터)을 바탕으로 Vision AI를 통해 생성된 <strong>참고용
           스크리닝 자료</strong>입니다. </br> 정확한 의학적 진단은 반드시 피부과 전문의와
@@ -217,7 +217,7 @@
 
       <div class="section-card" id="chatCard">
         <h3>AI에게 물어보기</h3>
-        <p style="font-size:12px; color:var(--color-ink-soft); margin:0 0 10px;">
+        <p class="section-subtext">
           AI가 생성한 참고용 답변입니다. 의료 진단·처방은 반드시 전문의와 상담하세요.
         </p>
         <div id="chatMessageList" class="chat-message-list"></div>
@@ -242,13 +242,13 @@
           <button class="rating-btn" data-rating="5">5</button>
         </div>
         <textarea id="feedbackComment" rows="2" placeholder="추가 의견이 있다면 남겨주세요 (선택)"></textarea>
-        <button class="btn-secondary" id="feedbackSubmitBtn" style="width:100%; margin-top:8px;">피드백 보내기</button>
-        <div id="feedbackDone" style="display:none; font-size:12px; color:var(--color-sage); margin-top:6px;">
+        <button class="btn-secondary btn-block" id="feedbackSubmitBtn">피드백 보내기</button>
+        <div id="feedbackDone">
           소중한 의견 감사합니다!
         </div>
       </div>
 
-      <div class="install-banner" id="installBanner" style="display:none">
+      <div class="install-banner" id="installBanner">
         <p id="installBannerText"></p>
         <button class="install-banner-close" id="installBannerCloseBtn" type="button" aria-label="닫기">✕</button>
       </div>
@@ -261,14 +261,14 @@
   <section id="screen-history" class="screen">
     <div class="report-eyebrow">History</div>
 
-    <div id="trendBanner" style="display:none" class="trend-banner">
-      <div style="font-family:var(--font-mono); font-size:11px; opacity:.8;">TREND</div>
+    <div id="trendBanner" class="trend-banner">
+      <div class="trend-label">TREND</div>
       <div class="delta" id="trendDelta">+0</div>
-      <div id="trendMessage" style="font-size:13px; margin-top:4px;"></div>
+      <div id="trendMessage"></div>
     </div>
 
     <div class="history-list" id="historyList"></div>
-    <div class="empty-state" id="historyEmpty" style="display:none">
+    <div class="empty-state" id="historyEmpty">
       아직 저장된 기록이 없습니다.<br />첫 스캔을 진행해보세요.
     </div>
   </section>
@@ -317,7 +317,7 @@
 
     <div class="about-card">
       <h3>꼭 알아주세요</h3>
-      <p style="margin:0;">
+      <p>
         본 서비스의 모든 결과는 <strong>참고용 스크리닝</strong>이며 의료 진단이
         아닙니다. 심각도가 높게 나오거나 증상이 지속될 경우 반드시 피부과
         전문의와 상담하시기 바랍니다.
@@ -339,7 +339,7 @@
 
   <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
-    <div style="font-family:var(--font-mono); font-size:12px; color:var(--color-ink-soft);">분석 중...</div>
+    <div class="loading-text">분석 중...</div>
   </div>
 
   <div class="modal-overlay" id="guideModalOverlay">
@@ -401,7 +401,7 @@
         <p>피부에 이상 증상이 있거나 증상이 지속되는 경우에는 AI 결과만으로 판단하지 마시고 피부과 전문의와 상담해주세요.</p>
       </div>
 
-      <button class="btn-primary" id="guideConfirmBtn" type="button" style="width:100%; margin-top:14px;">확인했어요</button>
+      <button class="btn-primary btn-block" id="guideConfirmBtn" type="button">확인했어요</button>
     </div>
   </div>
 

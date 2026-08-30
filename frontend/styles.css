@@ -33,6 +33,23 @@
 
 * { box-sizing: border-box; }
 
+/* ---------- 유틸리티 (인라인 style 대체) ---------- */
+/* 주의: 자체 display 값을 가진 클래스(.camera-error, .install-banner 등)와
+   함께 쓰면 CSS 등장 순서에 따라 이 규칙이 밀릴 수 있다. 그런 요소들은
+   .hidden 대신 아래쪽에 있는 #id 전용 규칙으로 처리했다(id 우선순위가 항상
+   더 높아 순서와 무관하게 이김). JS가 el.style.display로 다시 보여줄 때는
+   인라인 스타일이 어느 쪽이든 이기므로 !important는 쓰지 않는다. */
+.hidden { display: none; }
+.btn-block { width: 100%; }
+
+/* 카드 제목 아래 짧은 설명문에 반복적으로 쓰이는 스타일 */
+.section-subtext {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+  margin: 0 0 10px;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -311,7 +328,7 @@ body {
 
 /* ---------- 자외선 지수 (위치정보 있을 때만 노출) ---------- */
 .uv-card {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 12px;
   background: var(--color-surface);
@@ -382,8 +399,10 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
+
+.viewfinder-wrap video { display: block; }
+.viewfinder-wrap img.preview { display: none; }
 
 /* 전면 카메라는 라이브 프리뷰에서만 거울처럼 좌우 반전해 보여준다.
    실제 저장/분석되는 사진은 반전되지 않은 원본 그대로 유지된다. */
@@ -440,7 +459,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 3;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -595,7 +614,7 @@ body {
 
 /* ---------- 피부나이 배지 (스코어 카드 상단) ---------- */
 .skin-age-badge {
-  display: inline-block;
+  display: none;
   background: var(--color-accent-soft);
   color: var(--color-accent);
   font-size: 11px;
@@ -651,6 +670,8 @@ body {
   line-height: 1.6;
   color: var(--color-ink-soft);
 }
+
+.consent-card p { margin: 8px 0 0; }
 
 .consent-card label {
   display: flex;
@@ -796,6 +817,18 @@ body {
 }
 
 .section-card ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+
+.quality-issue-text {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.result-report {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
 
 .badge {
   display: inline-block;
@@ -970,7 +1003,7 @@ body {
 
 /* ---------- 홈 화면 추가(PWA 설치) 안내 배너 ---------- */
 .install-banner {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 10px;
   background: var(--color-accent-soft);
@@ -1020,6 +1053,7 @@ body {
 .color-swatch-group:last-of-type { margin-bottom: 0; }
 
 .color-swatch-group.avoid {
+  display: none;
   padding-top: 10px;
   border-top: 1px solid var(--color-line);
 }
@@ -1187,8 +1221,20 @@ body {
   cursor: pointer;
 }
 
+#feedbackSubmitBtn { margin-top: 8px; }
+
+#feedbackDone {
+  display: none;
+  font-size: 12px;
+  color: var(--color-sage);
+  margin-top: 6px;
+}
+
+#guideConfirmBtn { margin-top: 14px; }
+
 /* ---------- 이력 화면 ---------- */
 .trend-banner {
+  display: none;
   background: var(--color-accent);
   color: white;
   border-radius: var(--radius-card);
@@ -1198,6 +1244,17 @@ body {
 .trend-banner .delta {
   font-family: var(--font-mono);
   font-size: 26px;
+}
+
+.trend-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#trendMessage {
+  font-size: 13px;
+  margin-top: 4px;
 }
 
 .history-list { display: flex; flex-direction: column; gap: 10px; }
@@ -1224,6 +1281,7 @@ body {
 }
 
 .empty-state {
+  display: none;
   text-align: center;
   color: var(--color-ink-soft);
   font-size: 13px;
@@ -1243,6 +1301,12 @@ body {
 }
 
 .loading-overlay.active { display: flex; }
+
+.loading-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-ink-soft);
+}
 
 .spinner {
   width: 32px;
