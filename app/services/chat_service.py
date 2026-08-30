@@ -126,8 +126,11 @@ def _build_user_context(record: Optional[SkinRecord]) -> str:
 def answer_question(db: Session, user_id: str, record_id: int, question: str) -> str:
     """RAG(지식베이스) + 사용자 분석 결과를 근거로 질문에 답한다.
 
-    Gemini 호출이 실패하면(쿼터 초과 등) 고정 안내 메시지로 대체해, 다른
-    서비스 전체에 영향을 주지 않도록 격리한다.
+    기본 모델 호출 실패(쿼터 초과 등) 시 vision_service.analyze_skin_image()와
+    동일하게 대체 모델로 자동 전환한다. 무료 티어는 모델별로 쿼터가 완전히
+    분리되어 있어(예: gemini-3.6-flash 일일 한도 소진), 기본 모델이 막혀도
+    대체 모델은 대부분 정상 호출된다. 둘 다 실패하면 고정 안내 메시지로
+    대체해, 다른 서비스 전체에 영향을 주지 않도록 격리한다.
     """
     client = genai.Client(api_key=settings.gemini_api_key)
 
@@ -141,12 +144,13 @@ def answer_question(db: Session, user_id: str, record_id: int, question: str) ->
         user_context=user_context, rag_context=rag_context, question=question
     )
 
-    try:
-        response = client.models.generate_content(
-            model=settings.gemini_primary_model, contents=[prompt]
-        )
-        answer = (response.text or "").strip()
-        return answer or FALLBACK_MESSAGE
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("챗봇 답변 생성 실패: %s", exc)
-        return FALLBACK_MESSAGE
+    for model in (settings.gemini_primary_model, settings.gemini_fallback_model):
+        try:
+            response = client.models.generate_content(model=model, contents=[prompt])
+            answer = (response.text or "").strip()
+            if answer:
+                return answer
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("챗봇 답변 생성 실패(모델 %s): %s", model, exc)
+
+    return FALLBACK_MESSAGE
