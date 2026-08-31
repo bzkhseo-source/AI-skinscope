@@ -1090,6 +1090,7 @@ async function loadHistory() {
 
   listEl.innerHTML = "";
   if (trendSeriesCard) trendSeriesCard.style.display = "none";
+  document.getElementById("trendAnalysisCard").style.display = "none";
   try {
     const response = await fetch(`${API_BASE}/history/${getUserId()}`);
     if (!response.ok) throw new Error("이력 조회 실패");
@@ -1201,23 +1202,19 @@ async function loadTrendSeries() {
   }
 }
 
-function drawTrendChart(series) {
-  const svg = document.getElementById("trendChartSvg");
-  if (!svg) return;
+// svg에 values(0~100 스케일 숫자 배열)를 꺾은선 그래프로 그린다. 종합점수
+// 큰 차트와 이력분석의 항목별 미니 차트가 이 함수를 공유한다.
+function renderLineChartIntoSvg(svg, values, { width, height, padding, dotRadius }) {
   svg.innerHTML = "";
-  if (!series || series.length < 2) return;
+  if (!values || values.length < 2) return;
 
-  const width = 300;
-  const height = 100;
-  const padding = 10;
-  const scores = series.map((p) => p.overall_score);
-  const minScore = Math.min(...scores, 0);
-  const maxScore = Math.max(...scores, 100);
+  const minScore = Math.min(...values, 0);
+  const maxScore = Math.max(...values, 100);
   const range = maxScore - minScore || 1;
 
-  const points = series.map((p, i) => {
-    const x = padding + (i / (series.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((p.overall_score - minScore) / range) * (height - padding * 2);
+  const points = values.map((v, i) => {
+    const x = padding + (i / (values.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((v - minScore) / range) * (height - padding * 2);
     return `${x},${y}`;
   });
 
@@ -1232,10 +1229,94 @@ function drawTrendChart(series) {
     const circle = document.createElementNS(ns, "circle");
     circle.setAttribute("cx", x);
     circle.setAttribute("cy", y);
-    circle.setAttribute("r", "3");
+    circle.setAttribute("r", String(dotRadius));
     circle.setAttribute("class", "trend-chart-dot");
     svg.appendChild(circle);
   });
+}
+
+function drawTrendChart(series) {
+  const svg = document.getElementById("trendChartSvg");
+  if (!svg) return;
+  const values = (series || []).map((p) => p.overall_score);
+  renderLineChartIntoSvg(svg, values, { width: 300, height: 100, padding: 10, dotRadius: 3 });
+}
+
+// ---------------- 이력분석 리포트 (항목별 그래프 + AI 관리 피드백) ----------------
+const TREND_ANALYSIS_CHARTS = [
+  { key: "overall_score", label: "종합 점수", overall: true },
+  { key: "pore", label: "모공" },
+  { key: "elasticity", label: "탄력" },
+  { key: "moisture", label: "수분" },
+  { key: "wrinkle", label: "주름" },
+  { key: "pigmentation", label: "색소침착" },
+  { key: "redness", label: "붉은기" },
+];
+
+function renderTrendAnalysis(data) {
+  const grid = document.getElementById("trendAnalysisGrid");
+  grid.innerHTML = "";
+
+  const trendByKey = {};
+  (data.feature_trends || []).forEach((t) => {
+    trendByKey[t.key] = t;
+  });
+
+  TREND_ANALYSIS_CHARTS.forEach(({ key, label, overall }) => {
+    const values = data.series.map((p) => (overall ? p.overall_score : p.feature_scores[key]));
+    const trend = trendByKey[key];
+
+    const item = document.createElement("div");
+    item.className = `trend-analysis-chart-item${overall ? " overall" : ""}`;
+
+    let deltaHtml = "";
+    if (trend) {
+      const deltaText = trend.delta > 0 ? `+${trend.delta}` : `${trend.delta}`;
+      const directionIcon = { improving: "▲", declining: "▼", stable: "–" }[trend.direction] || "–";
+      deltaHtml = `<span class="trend-feature-delta">${directionIcon} ${deltaText}</span>`;
+    }
+
+    item.innerHTML = `
+      <div class="trend-analysis-chart-label">
+        <span>${label}</span>
+        ${deltaHtml}
+      </div>
+      <svg class="trend-mini-chart" viewBox="0 0 140 48" aria-hidden="true"></svg>
+    `;
+    grid.appendChild(item);
+    renderLineChartIntoSvg(item.querySelector("svg"), values, {
+      width: 140,
+      height: 48,
+      padding: 6,
+      dotRadius: 2,
+    });
+  });
+
+  document.getElementById("trendAnalysisFeedbackText").textContent = data.ai_feedback;
+}
+
+async function runTrendAnalysis() {
+  const btn = document.getElementById("trendAnalysisBtn");
+  const card = document.getElementById("trendAnalysisCard");
+
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = "분석 중...";
+
+  try {
+    const response = await fetch(`${API_BASE}/history/${getUserId()}/trend-analysis`);
+    if (!response.ok) throw new Error(`이력분석 실패 (${response.status})`);
+    const data = await response.json();
+    renderTrendAnalysis(data);
+    card.style.display = "block";
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (err) {
+    alert("이력분석 중 오류가 발생했습니다: " + err.message);
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
 }
 
 // ---------------- 사용자 ID 입력 필드 ----------------
@@ -1472,6 +1553,8 @@ function init() {
   initGuideModal();
   initInstallBanner();
   initFaceDetection(); // 네트워크 로딩이 있어 카메라 시작 전에 미리 준비해둔다
+
+  document.getElementById("trendAnalysisBtn").addEventListener("click", runTrendAnalysis);
 
   document.getElementById("shutterBtn").addEventListener("click", capturePhotoFromVideo);
   document.getElementById("cameraSwitchBtn").addEventListener("click", switchCamera);

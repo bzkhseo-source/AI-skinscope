@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db
 from app.schemas.agent import AgentResult
-from app.schemas.history import HistoryEntry, HistoryResponse, TrendSeriesResponse
+from app.schemas.history import (
+    HistoryEntry,
+    HistoryResponse,
+    TrendAnalysisResponse,
+    TrendSeriesResponse,
+)
 from app.services.memory_service import (
     build_trend_series,
     compute_trend,
@@ -12,6 +17,7 @@ from app.services.memory_service import (
     get_record,
     load_agent_result,
 )
+from app.services.trend_analysis_service import build_trend_analysis
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -38,6 +44,20 @@ def read_trend_series(user_id: str, db: Session = Depends(get_db)) -> TrendSerie
             detail="시계열 분석을 위한 기록이 2건 이상 필요합니다.",
         )
     return trend
+
+
+@router.get("/{user_id}/trend-analysis", response_model=TrendAnalysisResponse)
+def read_trend_analysis(user_id: str, db: Session = Depends(get_db)) -> TrendAnalysisResponse:
+    """"이력분석" 버튼용: 항목별 시계열 그래프 데이터 + Gemini가 생성한 관리
+    피드백을 함께 제공한다. /trend와 달리 Gemini를 호출하므로, 자동 로드가
+    아닌 사용자가 명시적으로 버튼을 눌렀을 때만 호출되어야 한다."""
+    analysis = build_trend_analysis(db, user_id)
+    if analysis is None:
+        raise HTTPException(
+            status_code=404,
+            detail="이력분석을 위한 기록이 2건 이상 필요합니다.",
+        )
+    return analysis
 
 
 @router.get("/{user_id}/{record_id}", response_model=AgentResult)

@@ -1309,6 +1309,67 @@ body {
 .trend-feature-badge.down .trend-feature-delta { color: var(--color-brick); }
 .trend-feature-badge.flat .trend-feature-delta { color: var(--color-ink-soft); }
 
+/* ---------- 이력분석 리포트 (항목별 그래프 + AI 관리 피드백) ---------- */
+.trend-analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.trend-analysis-chart-item {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card-sm);
+  padding: 10px;
+  background: var(--color-surface);
+}
+
+.trend-analysis-chart-item.overall {
+  grid-column: 1 / -1;
+  background: var(--color-surface-warm);
+}
+
+.trend-analysis-chart-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.trend-analysis-chart-label .trend-feature-delta {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.trend-mini-chart {
+  width: 100%;
+  height: 48px;
+  display: block;
+}
+
+.trend-mini-chart .trend-chart-line {
+  stroke-width: 1.5;
+}
+
+.trend-mini-chart .trend-chart-dot {
+  r: 2;
+}
+
+.ai-feedback-box {
+  background: var(--color-surface-warm);
+  border-radius: var(--radius-card-sm);
+  padding: 12px 14px;
+}
+
+.ai-feedback-box p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+
 .empty-state {
   display: none;
   text-align: center;
