@@ -34,11 +34,9 @@
 * { box-sizing: border-box; }
 
 /* ---------- 유틸리티 (인라인 style 대체) ---------- */
-/* 주의: 자체 display 값을 가진 클래스(.camera-error, .install-banner 등)와
-   함께 쓰면 CSS 등장 순서에 따라 이 규칙이 밀릴 수 있다. 그런 요소들은
-   .hidden 대신 아래쪽에 있는 #id 전용 규칙으로 처리했다(id 우선순위가 항상
-   더 높아 순서와 무관하게 이김). JS가 el.style.display로 다시 보여줄 때는
-   인라인 스타일이 어느 쪽이든 이기므로 !important는 쓰지 않는다. */
+/* 주의: 자체 display 값을 가진 클래스와 함께 쓰면 CSS 등장 순서에 따라 이
+   규칙이 밀릴 수 있다. 그런 요소들은 .hidden 대신 해당 컴포넌트 클래스
+   자체의 기본값을 display:none으로 둬서 처리했다. */
 .hidden { display: none; }
 .btn-block { width: 100%; }
 
@@ -57,8 +55,6 @@ html, body {
   color: var(--color-ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  word-break: keep-all;
-  overflow-wrap: break-word;
 }
 
 body {
@@ -107,6 +103,27 @@ body {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+/* ---------- 헤더 우측 버튼 그룹 (사용법 + 뒤로가기) ---------- */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.guide-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-soft);
+  padding: 5px 10px;
+  cursor: pointer;
 }
 
 /* ---------- 사용자 ID 입력 바 ---------- */
@@ -246,87 +263,7 @@ body {
   flex: 1;
 }
 
-/* ---------- AI에게 물어보기 (챗봇) ---------- */
-.chat-message-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.chat-message-list:empty { display: none; }
-
-.chat-message {
-  max-width: 85%;
-  padding: 8px 12px;
-  border-radius: var(--radius-card-sm);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.chat-message.user {
-  align-self: flex-end;
-  background: var(--color-accent);
-  color: white;
-}
-
-.chat-message.ai {
-  align-self: flex-start;
-  background: var(--color-surface-warm);
-  color: var(--color-ink);
-}
-
-.chat-message.ai .chat-ai-badge {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--color-ink-soft);
-  margin-bottom: 3px;
-}
-
-.chat-message.pending { opacity: 0.6; }
-
-.chat-suggestion-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.chat-suggestion-chip {
-  border: 1px solid var(--color-line);
-  background: var(--color-surface);
-  border-radius: var(--radius-pill);
-  padding: 6px 12px;
-  font-size: 12px;
-  color: var(--color-ink-soft);
-  cursor: pointer;
-}
-
-.chat-input-row {
-  display: flex;
-  gap: 8px;
-}
-
-.chat-input-row input {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  padding: 10px 14px;
-  font-family: var(--font-body);
-  font-size: 13px;
-  background: var(--color-bg);
-  color: var(--color-ink);
-}
-
-.chat-send-btn {
-  flex-shrink: 0;
-  padding: 10px 18px;
-  font-size: 13px;
-}
-
-/* ---------- 자외선 지수 (위치정보 있을 때만 노출) ---------- */
+/* ---------- 자외선 지수 (선택, 위치정보 있을 때만) ---------- */
 .uv-card {
   display: none;
   align-items: center;
@@ -339,31 +276,35 @@ body {
 
 .uv-badge {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-  color: white;
-  background: var(--color-ink-soft);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  background: var(--color-line);
+  color: var(--color-ink-soft);
 }
 
-.uv-badge.low { background: #4F9A5A; }
-.uv-badge.moderate { background: #D3B93F; }
-.uv-badge.high { background: #D3903F; }
-.uv-badge.very_high { background: #B75B44; }
-.uv-badge.extreme { background: #8A4F9A; }
+.uv-badge.low { background: rgba(124, 154, 114, 0.18); color: var(--color-sage); }
+.uv-badge.moderate { background: rgba(211, 144, 63, 0.18); color: var(--color-amber); }
+.uv-badge.high { background: rgba(183, 91, 68, 0.18); color: var(--color-brick); }
+.uv-badge.very_high { background: rgba(183, 91, 68, 0.3); color: var(--color-brick); }
+.uv-badge.extreme { background: rgba(120, 40, 30, 0.35); color: #7A2820; }
 
-.uv-info { flex: 1; min-width: 0; }
+.uv-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .uv-index-row {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
+  align-items: baseline;
 }
 
 .uv-label {
@@ -373,14 +314,14 @@ body {
 
 .uv-index-value {
   font-family: var(--font-mono);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .uv-advice {
   font-size: 12px;
   color: var(--color-ink-soft);
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   line-height: 1.4;
 }
 
@@ -455,27 +396,6 @@ body {
   pointer-events: none;
 }
 
-.camera-error {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 24px;
-  text-align: center;
-  background: rgba(23, 20, 18, 0.88);
-}
-
-.camera-error p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.92);
-}
-
 .viewfinder-frame .corner {
   position: absolute;
   width: 28px;
@@ -500,6 +420,34 @@ body {
 
 .viewfinder-wrap.scanning .scan-line { opacity: 1; }
 
+.camera-error {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(23, 20, 18, 0.88);
+}
+
+.camera-error p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.capture-condition-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-amber);
+  margin: 0 0 6px;
+}
+
 @keyframes scan-move {
   0% { top: 24px; }
   50% { top: calc(100% - 26px); }
@@ -508,14 +456,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .scan-line { animation: none; opacity: .6; top: 50%; }
-}
-
-/* 밝기/거리 실시간 안내 — 촬영을 막지 않는 소프트 가이드 문구 */
-.capture-condition-hint {
-  text-align: center;
-  font-size: 12px;
-  color: var(--color-amber);
-  margin: 0 0 6px;
 }
 
 .capture-controls {
@@ -563,32 +503,9 @@ body {
 
 .camera-switch-btn:disabled { opacity: 0.4; }
 
-/* ---------- 헤더 우측 버튼 그룹 (사용법 + 뒤로가기) ---------- */
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.guide-btn {
-  flex-shrink: 0;
-  white-space: nowrap;
-  background: var(--color-surface);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--color-ink-soft);
-  padding: 5px 10px;
-  cursor: pointer;
-}
-
 /* ---------- 뒤로가기 버튼 (헤더 우측 상단 고정) ---------- */
 .back-btn {
   display: none;
-  flex-shrink: 0;
-  white-space: nowrap;
   background: none;
   border: none;
   font-family: var(--font-mono);
@@ -599,35 +516,6 @@ body {
 }
 
 .app-header.show-back .back-btn { display: block; }
-
-/* ---------- 결과 사진 썸네일 (게이지 카드 내부, 좌측 배치) ---------- */
-.score-thumb-img {
-  width: 84px;
-  height: 84px;
-  border-radius: var(--radius-card-sm);
-  object-fit: cover;
-  background: var(--color-surface-warm);
-  border: 2px solid var(--color-surface);
-  box-shadow: var(--shadow-card);
-  flex-shrink: 0;
-}
-
-/* ---------- 피부나이 배지 (스코어 카드 상단) ---------- */
-.skin-age-badge {
-  display: none;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  margin-bottom: 6px;
-}
-
-.skin-age-badge.muted {
-  background: var(--color-line);
-  color: var(--color-ink-soft);
-}
 
 /* ---------- 소개 페이지 ---------- */
 .about-card {
@@ -671,8 +559,6 @@ body {
   color: var(--color-ink-soft);
 }
 
-.consent-card p { margin: 8px 0 0; }
-
 .consent-card label {
   display: flex;
   gap: 10px;
@@ -683,6 +569,12 @@ body {
 }
 
 /* ---------- 리포트 카드 (결과 화면) ---------- */
+.result-report {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .report-eyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -700,6 +592,34 @@ body {
   flex-direction: row;
   align-items: center;
   gap: 16px;
+}
+
+.score-thumb-img {
+  width: 84px;
+  height: 84px;
+  border-radius: var(--radius-card-sm);
+  object-fit: cover;
+  background: var(--color-surface-warm);
+  border: 2px solid var(--color-surface);
+  box-shadow: var(--shadow-card);
+  flex-shrink: 0;
+}
+
+/* 피부나이 배지 (스코어 카드 상단) */
+.skin-age-badge {
+  display: none;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 6px;
+}
+
+.skin-age-badge.muted {
+  background: var(--color-line);
+  color: var(--color-ink-soft);
 }
 
 .score-info {
@@ -824,12 +744,6 @@ body {
   margin: 0 0 12px;
 }
 
-.result-report {
-  display: none;
-  flex-direction: column;
-  gap: 14px;
-}
-
 .badge {
   display: inline-block;
   font-family: var(--font-mono);
@@ -842,8 +756,7 @@ body {
 .badge.ok { background: rgba(124, 154, 114, 0.15); color: var(--color-sage); }
 .badge.warn { background: rgba(183, 91, 68, 0.12); color: var(--color-brick); }
 .badge.caution { background: rgba(211, 144, 63, 0.15); color: var(--color-amber); }
-/* 종합 점수 6단계 구간 중 4단계(경고/주의/양호/매우양호)는 위 색을 그대로 재사용하고,
-   나머지 2단계(전문의 진료 권고/백옥 피부 미녀)만 전용 스타일을 추가한다. */
+/* 종합 점수 6단계 구간 중 나머지 2단계(전문의 진료 권고/백옥 피부 미녀) 전용 스타일 */
 .badge.derm { background: rgba(183, 91, 68, 0.22); color: var(--color-brick); font-weight: 700; }
 .badge.top {
   background: linear-gradient(135deg, var(--color-accent-soft), var(--color-rose));
@@ -858,38 +771,16 @@ body {
   margin-bottom: 12px;
 }
 
-.face-diagram-svg {
+.face-diagram-frame {
+  position: relative;
   width: 140px;
-  height: 168px;
 }
 
-.face-outline {
-  fill: none;
-  stroke: var(--color-ink);
-  stroke-width: 2.5;
-  stroke-linejoin: round;
+.face-diagram-img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
-
-.face-feature {
-  fill: none;
-  stroke: var(--color-ink-soft);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.face-feature-fill {
-  fill: var(--color-ink-soft);
-}
-
-.region-dot {
-  stroke: var(--color-surface);
-  stroke-width: 2;
-  fill: var(--color-line);
-}
-
-.region-dot.ok { fill: var(--color-sage); }
-.region-dot.caution { fill: var(--color-amber); }
-.region-dot.warn { fill: var(--color-brick); }
 
 .region-item {
   border-top: 1px solid var(--color-line);
@@ -928,12 +819,11 @@ body {
 
 /* ---------- 참고 패턴(질환 의심) ---------- */
 .pattern-item {
-  background: var(--color-bg);
-  border-radius: var(--radius-card-sm);
-  padding: 12px;
+  border-top: 1px solid var(--color-line);
+  padding: 10px 0;
 }
 
-.pattern-item + .pattern-item { margin-top: 8px; }
+.pattern-item:first-child { border-top: none; padding-top: 0; }
 
 .pattern-item .pattern-head {
   display: flex;
@@ -1001,102 +891,6 @@ body {
   color: var(--color-ink-soft);
 }
 
-/* ---------- 홈 화면 추가(PWA 설치) 안내 배너 ---------- */
-.install-banner {
-  display: none;
-  align-items: center;
-  gap: 10px;
-  background: var(--color-accent-soft);
-  border-radius: var(--radius-card-sm);
-  padding: 12px 14px;
-}
-
-.install-banner p {
-  flex: 1;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-ink);
-}
-
-.install-banner-close {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: var(--color-ink-soft);
-  cursor: pointer;
-  padding: 4px;
-  line-height: 1;
-}
-
-/* ---------- 퍼스널컬러 (참고용) ---------- */
-.personal-color-undertone {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
-  border-radius: var(--radius-pill);
-  padding: 4px 12px;
-  margin-bottom: 12px;
-}
-
-.color-swatch-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.color-swatch-group:last-of-type { margin-bottom: 0; }
-
-.color-swatch-group.avoid {
-  display: none;
-  padding-top: 10px;
-  border-top: 1px solid var(--color-line);
-}
-
-.color-swatch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 64px;
-}
-
-.color-swatch .swatch-chip {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-line);
-}
-
-.color-swatch-group.avoid .swatch-chip {
-  opacity: 0.4;
-}
-
-.color-swatch .swatch-label {
-  font-size: 11px;
-  text-align: center;
-  line-height: 1.3;
-}
-
-.color-swatch .swatch-hex {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--color-ink-soft);
-}
-
-.personal-color-note {
-  font-size: 12px;
-  color: var(--color-ink-soft);
-  line-height: 1.5;
-  margin: 4px 0 0;
-}
-
 /* ---------- 추천 성분 (고민 카테고리별 박스 구분) ---------- */
 .ingredient-group {
   border: 1px solid var(--color-line);
@@ -1157,6 +951,176 @@ body {
 
 .ingredient-efficacy-list li { margin-bottom: 2px; }
 
+/* ---------- 퍼스널컬러 (참고용 재미 기능) ---------- */
+.personal-color-undertone {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 10px;
+}
+
+.color-swatch-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.color-swatch-group:last-of-type { margin-bottom: 0; }
+
+.color-swatch-group.avoid {
+  display: none;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-line);
+}
+
+.color-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 64px;
+}
+
+.color-swatch-group.avoid .swatch-chip { opacity: 0.4; }
+
+.swatch-chip {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.swatch-label {
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.swatch-hex {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-ink-soft);
+}
+
+.personal-color-note {
+  font-size: 11px;
+  color: var(--color-ink-soft);
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
+/* ---------- 피부지식 챗봇 ---------- */
+.chat-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.chat-message {
+  max-width: 85%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  background: var(--color-accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.ai {
+  align-self: flex-start;
+  background: var(--color-surface-warm);
+  color: var(--color-ink);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-message.pending { opacity: 0.6; }
+
+.chat-ai-badge {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-accent);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chat-suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.chat-suggestion-chip {
+  background: var(--color-surface-warm);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.chat-send-btn { padding: 10px 18px; font-size: 13px; }
+
+/* ---------- PWA 설치 안내 배너 ---------- */
+.install-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-card-sm);
+  padding: 12px 14px;
+}
+
+.install-banner p {
+  flex: 1;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+
+.install-banner-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
 /* ---------- 피드백 ---------- */
 .rating-row {
   display: flex;
@@ -1196,6 +1160,15 @@ body {
   color: var(--color-ink);
 }
 
+#feedbackSubmitBtn { margin-top: 8px; }
+
+#feedbackDone {
+  display: none;
+  font-size: 12px;
+  color: var(--color-sage);
+  margin-top: 6px;
+}
+
 /* ---------- 버튼 ---------- */
 .btn-primary {
   background: var(--color-accent);
@@ -1220,17 +1193,6 @@ body {
   font-size: 13px;
   cursor: pointer;
 }
-
-#feedbackSubmitBtn { margin-top: 8px; }
-
-#feedbackDone {
-  display: none;
-  font-size: 12px;
-  color: var(--color-sage);
-  margin-top: 6px;
-}
-
-#guideConfirmBtn { margin-top: 14px; }
 
 /* ---------- 이력 화면 ---------- */
 .trend-banner {
@@ -1412,3 +1374,5 @@ body {
 }
 
 .guide-notice h3 { margin-top: 0; }
+
+#guideConfirmBtn { margin-top: 14px; }

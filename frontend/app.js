@@ -812,12 +812,6 @@ function renderResult(result, thumbUrl) {
   const regionalCard = document.getElementById("regionalCard");
   const regionalList = document.getElementById("regionalList");
   regionalList.innerHTML = "";
-  // 다이어그램 점(dot)은 화면에 계속 남아있는 요소이므로, 이전 결과의 색이
-  // 남지 않도록 매번 기본 상태로 되돌린 뒤 새로 칠한다.
-  REGION_ORDER.forEach((key) => {
-    const dot = document.getElementById(`dot-${key}`);
-    if (dot) dot.setAttribute("class", "region-dot");
-  });
 
   if (vision.regional_scores) {
     regionalCard.style.display = "block";
@@ -827,9 +821,6 @@ function renderResult(result, thumbUrl) {
 
       const composite = Math.round((region.pore + region.oiliness + region.trouble) / 3);
       const tier = regionScoreTier(composite);
-
-      const dot = document.getElementById(`dot-${key}`);
-      if (dot) dot.setAttribute("class", `region-dot ${tier}`);
 
       const row = document.createElement("div");
       row.className = "region-item";
