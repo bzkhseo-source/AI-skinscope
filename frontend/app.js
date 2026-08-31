@@ -1086,8 +1086,10 @@ async function loadHistory() {
   const listEl = document.getElementById("historyList");
   const emptyEl = document.getElementById("historyEmpty");
   const trendBanner = document.getElementById("trendBanner");
+  const trendSeriesCard = document.getElementById("trendSeriesCard");
 
   listEl.innerHTML = "";
+  if (trendSeriesCard) trendSeriesCard.style.display = "none";
   try {
     const response = await fetch(`${API_BASE}/history/${getUserId()}`);
     if (!response.ok) throw new Error("이력 조회 실패");
@@ -1122,15 +1124,118 @@ async function loadHistory() {
         <div>
           <div class="idx">SCAN ${String(data.entries.length - idx).padStart(3, "0")} · ${dateLabel}</div>
         </div>
-        <div class="score">${entry.overall_score}</div>
+        <div class="history-entry-right">
+          <div class="score">${entry.overall_score}</div>
+          <button class="history-delete-btn" type="button" aria-label="이 기록 삭제">삭제</button>
+        </div>
       `;
       div.addEventListener("click", () => openHistoryDetail(entry.id));
+      div.querySelector(".history-delete-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteHistoryRecord(entry.id);
+      });
       listEl.appendChild(div);
     });
+
+    loadTrendSeries();
   } catch (err) {
     console.error(err);
     emptyEl.style.display = "block";
   }
+}
+
+// ---------------- 이력 개별 삭제 (FR-12) ----------------
+async function deleteHistoryRecord(recordId) {
+  if (!confirm("이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.")) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/history/${getUserId()}/${recordId}`, {
+      method: "DELETE",
+    });
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`삭제 실패 (${response.status})`);
+    }
+    loadHistory();
+  } catch (err) {
+    alert("기록 삭제 중 오류가 발생했습니다: " + err.message);
+    console.error(err);
+  }
+}
+
+// ---------------- 변화 추이 시계열 분석 (FR-09 확장) ----------------
+async function loadTrendSeries() {
+  const card = document.getElementById("trendSeriesCard");
+  if (!card) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/history/${getUserId()}/trend`);
+    if (!response.ok) {
+      // 기록이 2건 미만이면 404 — 시계열 분석 카드를 숨긴다.
+      card.style.display = "none";
+      return;
+    }
+    const data = await response.json();
+    card.style.display = "block";
+
+    document.getElementById("trendSeriesSummary").textContent = data.summary_message;
+
+    const badgeList = document.getElementById("trendFeatureBadges");
+    badgeList.innerHTML = "";
+    const directionIcon = { improving: "▲", declining: "▼", stable: "–" };
+    const directionCls = { improving: "up", declining: "down", stable: "flat" };
+    data.feature_trends.forEach((t) => {
+      const badge = document.createElement("div");
+      badge.className = `trend-feature-badge ${directionCls[t.direction] || "flat"}`;
+      const deltaText = t.delta > 0 ? `+${t.delta}` : `${t.delta}`;
+      badge.innerHTML = `
+        <span class="trend-feature-label">${t.label_ko}</span>
+        <span class="trend-feature-delta">${directionIcon[t.direction] || "–"} ${deltaText}</span>
+      `;
+      badgeList.appendChild(badge);
+    });
+
+    drawTrendChart(data.series);
+  } catch (err) {
+    card.style.display = "none";
+    console.error(err);
+  }
+}
+
+function drawTrendChart(series) {
+  const svg = document.getElementById("trendChartSvg");
+  if (!svg) return;
+  svg.innerHTML = "";
+  if (!series || series.length < 2) return;
+
+  const width = 300;
+  const height = 100;
+  const padding = 10;
+  const scores = series.map((p) => p.overall_score);
+  const minScore = Math.min(...scores, 0);
+  const maxScore = Math.max(...scores, 100);
+  const range = maxScore - minScore || 1;
+
+  const points = series.map((p, i) => {
+    const x = padding + (i / (series.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((p.overall_score - minScore) / range) * (height - padding * 2);
+    return `${x},${y}`;
+  });
+
+  const ns = "http://www.w3.org/2000/svg";
+  const polyline = document.createElementNS(ns, "polyline");
+  polyline.setAttribute("points", points.join(" "));
+  polyline.setAttribute("class", "trend-chart-line");
+  svg.appendChild(polyline);
+
+  points.forEach((pt) => {
+    const [x, y] = pt.split(",");
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", x);
+    circle.setAttribute("cy", y);
+    circle.setAttribute("r", "3");
+    circle.setAttribute("class", "trend-chart-dot");
+    svg.appendChild(circle);
+  });
 }
 
 // ---------------- 사용자 ID 입력 필드 ----------------
