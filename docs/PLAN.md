@@ -37,7 +37,7 @@
 | 외부 접근 가능한 배포 | ✅ | <https://ai-skinscope.vercel.app> (2026-08-30 접속 확인) |
 | 실사용자 피드백 반영 | ✅ | `docs/Result.md` "피드백 → 기능 매핑" 참고 |
 | AI 생성 콘텐츠 명시 | ✅ | 결과 화면 상시 고지, 챗봇 `is_ai_generated` 배지 |
-| 개인정보 동의·안전 관리 | ✅ | 촬영 전 동의 체크박스, 암호화 저장, 삭제 요청 지원 (`docs/PLANNING.md` 9장) |
+| 개인정보 동의·안전 관리 | ✅ | 촬영 전 동의 체크박스, 암호화 저장, 삭제 요청 지원 (`docs/Service기획서.md` 8장) |
 
 ---
 
@@ -45,18 +45,20 @@
 
 | 단계 | 담당 | 내용 |
 | --- | --- | --- |
-| 1. 기획 | 팀장 + 팀원A | 문제 정의, 페르소나, AI Hub 데이터 검토, 기술 스택 선정 → `docs/PLANNING.md` |
+| 1. 기획 | 팀장 + 팀원A | 문제 정의, 페르소나, AI Hub 데이터 검토, 기술 스택 선정 → `docs/Service기획서.md` |
 | 2. 핵심 파이프라인 구현 | 팀원A | Gemini Vision 연동, RAG ×2(질환 유사사례/인구 실측), AI Agent(병원 검색 도구 호출), DB 이력 저장 |
 | 3. 1차 실사용자 테스트 | 팀원C | 초기 버전으로 테스트 진행, 피드백 수집 시작 → `docs/user_test_results.csv` |
-| 4. 피드백 기반 확장 (로드맵 A~I) | 팀원A + 팀원B | 촬영 가이드, 결과 공유, AI 소견 구조화, 나이·동년배·피부나이, 부위별 분석, 성분 추천 — `docs/PRODUCT_ROADMAP_V2.md` |
-| 5. 신뢰성 이슈 진단·수정 | 팀원A | 피부나이 과소 산출 버그 발견 → 원인 분석 → 수정 → `docs/SKIN_AGE_RELIABILITY_SPEC.md` |
-| 6. 신규 기능 3종 추가 (J/K/L) | 팀원A | 자외선 지수, 퍼스널컬러 추천, 피부지식 챗봇(RAG) → `docs/FEATURE_ADDITIONS_SPEC.md` |
-| 7. 점수 재현성 문제 진단·수정 | 팀원A | 반복 촬영 시 점수 편차 피드백 → temperature 고정 등 수정 → `docs/SCORE_CONSISTENCY_SPEC.md`, `docs/SCORE_CONSISTENCY_TEST_LOG.md` |
-| 8. PWA 설치 경험 개선 | 팀원B | iOS/Android 홈 화면 설치 대응 → `docs/PWA_INSTALL_SPEC.md` |
+| 4. 피드백 기반 확장 (로드맵 A~I) | 팀원A + 팀원B | 촬영 가이드, 결과 공유, AI 소견 구조화, 나이·동년배·피부나이, 부위별 분석, 성분 추천 — `docs/개선 과정 작업지시서/PRODUCT_ROADMAP_V2.md` |
+| 5. 신뢰성 이슈 진단·수정 | 팀원A | 피부나이 과소 산출 버그 발견 → 원인 분석 → 수정 → `docs/개선 과정 작업지시서/SKIN_AGE_RELIABILITY_SPEC.md` |
+| 6. 신규 기능 3종 추가 (J/K/L) | 팀원A | 자외선 지수, 퍼스널컬러 추천, 피부지식 챗봇(RAG) → `docs/개선 과정 작업지시서/FEATURE_ADDITIONS_SPEC.md` |
+| 7. 점수 재현성 문제 진단·수정 | 팀원A | 반복 촬영 시 점수 편차 피드백 → temperature 고정 등 수정 → `docs/개선 과정 작업지시서/SCORE_CONSISTENCY_SPEC.md`, `docs/개선 과정 작업지시서/SCORE_CONSISTENCY_TEST_LOG.md` |
+| 8. PWA 설치 경험 개선 | 팀원B | iOS/Android 홈 화면 설치 대응 → `docs/개선 과정 작업지시서/PWA_INSTALL_SPEC.md` |
 | 9. 얼굴 다이어그램 이미지 교체 | 팀원B | 부위별 분석 화면의 손그림 SVG를 실제 일러스트 이미지로 교체 |
-| 10. 최종 코드 QA | 팀장 + 팀원A | 전체 기능·코드 점검, 실결함 2건 발견·수정(카카오맵 예외처리, 챗봇 XSS) |
-| 11. 배포 | 팀원A | Vercel 배포 → <https://ai-skinscope.vercel.app> |
-| 12. 최종 문서화 | 팀장 + 팀원C | `README.md`, `docs/Service기획서.md`, `docs/기능요구명세서.md`, `docs/Result.md` 정리 |
+| 10. 이력 관리 확장 | 팀원A | 이력 개별 삭제 API, 시계열 변화 분석 API(선형회귀 기반 항목별 추세) 추가 |
+| 11. 이력분석 리포트(AI 피드백) | 팀원A | "이력분석" 버튼 클릭 시 6개 항목+종합점수 그래프와 함께, 추세를 근거로 한 Gemini 생성 관리 피드백 제공. 스키마 변경 전 저장된 구버전 기록이 시계열 분석 전체를 실패시키던 결함 발견·수정 |
+| 12. 최종 코드 QA | 팀장 + 팀원A | 전체 기능·코드 점검, 실결함 2건 발견·수정(카카오맵 예외처리, 챗봇 XSS) |
+| 13. 배포 | 팀원A | Vercel 배포 → <https://ai-skinscope.vercel.app> |
+| 14. 최종 문서화 | 팀장 + 팀원C | `README.md`, `docs/Service기획서.md`, `docs/기능요구명세서.md`, `docs/Result.md` 정리 |
 
 ---
 

@@ -62,3 +62,17 @@ class TrendSeriesResponse(BaseModel):
     feature_trends: List[FeatureTrendSummary]
     overall_direction: str = Field(..., description="'improving' | 'declining' | 'stable'")
     summary_message: str
+
+
+class TrendAnalysisResponse(BaseModel):
+    """"이력분석" 버튼 클릭 시 제공하는 상세 리포트: 항목별 그래프용 시계열
+    데이터 + AI가 생성한 관리 피드백. 그래프 데이터는 TrendSeriesResponse와
+    동일하지만, ai_feedback은 Gemini를 호출해야 해서 비용이 들기 때문에
+    /trend(자동 로드)와 분리된 별도 엔드포인트로 제공한다."""
+
+    user_id: str
+    series: List[SeriesPoint]
+    feature_trends: List[FeatureTrendSummary]
+    overall_direction: str
+    ai_feedback: str = Field(..., description="변화 추세에 따른 AI 생성 관리 피드백")
+    is_ai_generated: bool = Field(default=True, description="프론트에서 'AI 생성' 배지 표시용")

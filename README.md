@@ -14,7 +14,7 @@ AI 피부 상태 스크리닝 & 코칭 서비스 — 스마트폰 카메라로 �
 
 피부에 트러블(여드름, 붉은기, 각질, 건조 등)이 생겼을 때 병원에 갈 정도인지 스스로 판단하기 어렵다는 문제에서 출발했습니다. 인터넷 검색은 정보가 파편적이고, 병원은 매번 가기엔 시간·비용 부담이 있습니다. AI-SkinScope는 사진 한 장으로 즉시 참고용 스크리닝 결과와 관리 가이드를 제공하고, 촬영 이력을 누적해 변화를 추적할 수 있게 합니다.
 
-자세한 문제 정의·페르소나·요구사항은 [`docs/PLANNING.md`](docs/PLANNING.md), 확장 기능 설계는 [`docs/PRODUCT_ROADMAP_V2.md`](docs/PRODUCT_ROADMAP_V2.md)를 참고하세요.
+자세한 문제 정의·페르소나·요구사항은 [`docs/Service기획서.md`](docs/Service기획서.md), 확장 기능 설계는 [`docs/개선 과정 작업지시서/PRODUCT_ROADMAP_V2.md`](<docs/개선 과정 작업지시서/PRODUCT_ROADMAP_V2.md>)를 참고하세요.
 
 ## 2. 주요 기능
 
@@ -32,7 +32,8 @@ AI 피부 상태 스크리닝 & 코칭 서비스 — 스마트폰 카메라로 �
 | 자외선 지수 연동 | 현재 위치 기준 UV 지수·행동 요령 안내(OpenWeatherMap) |
 | 피부지식 챗봇 | 분석 결과에 대해 자유롭게 질문하면 RAG 기반으로 답변(의료 진단성 질문은 전문의 상담 권유로 안내) |
 | 결과 공유 | Web Share API 또는 클립보드 복사로 점수·요약 공유(원본 사진 미포함) |
-| 이력 관리 (Long-term Memory) | 사용자별 촬영 기록 저장, 변화 추적, 만족도/의견 피드백 수집 |
+| 이력 관리 (Long-term Memory) | 사용자별 촬영 기록 저장, 개별 기록 삭제, 만족도/의견 피드백 수집 |
+| 이력 분석 리포트 | "이력분석" 버튼 클릭 시 모공·탄력·수분·주름·색소침착·붉은기 6개 항목 + 종합점수의 전체 기간 변화 그래프와, 그 추세에 따른 AI 생성 관리 피드백 제공 |
 | PWA 설치 | iOS/Android 홈 화면 설치, 오프라인 캐싱(분석·이력·공유 API는 항상 네트워크 우선) |
 
 ## 3. AI 활용 방식
@@ -54,7 +55,7 @@ Final Project 요구 기술 요소(5종 중 2개 이상) 중 3개를 충족합�
 | AI | Google Gemini Vision(`gemini-3.6-flash`, fallback `gemini-3.5-flash-lite`), `gemini-embedding-2`(768차원, RAG용) |
 | Frontend | Vanilla JS/HTML/CSS 기반 PWA (프레임워크·번들러 없음) |
 | 외부 API | 카카오맵 로컬 검색(병원 검색), OpenWeatherMap(자외선 지수) |
-| 데이터 | AI Hub "한국인 피부상태 측정 데이터", "안면부 피부질환 이미지 합성 데이터" (자세한 사용 범위는 `docs/PLANNING.md` 8장 참고) |
+| 데이터 | AI Hub "한국인 피부상태 측정 데이터", "안면부 피부질환 이미지 합성 데이터" (자세한 사용 범위는 `docs/Service기획서.md` 4장 참고) |
 
 ## 5. 폴더 구조
 
@@ -112,7 +113,7 @@ python scripts/serve_https.py
 
 ### 참고 데이터 재생성 (필요 시)
 
-`app/data/*.json`은 사전에 계산된 참고 인덱스입니다. AI Hub 원본 데이터를 다시 받아 처음부터 빌드하려면 `scripts/build_*.py` 스크립트들을 참고하세요(원본 데이터셋 접근 방법은 `docs/PLANNING.md` 8장 참고).
+`app/data/*.json`은 사전에 계산된 참고 인덱스입니다. AI Hub 원본 데이터를 다시 받아 처음부터 빌드하려면 `scripts/build_*.py` 스크립트들을 참고하세요(원본 데이터셋 접근 방법은 `docs/Service기획서.md` 4장 참고).
 
 ## 7. 팀 구성
 

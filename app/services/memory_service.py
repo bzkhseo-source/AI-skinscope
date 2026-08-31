@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -12,6 +13,8 @@ from app.schemas.history import (
     TrendInfo,
     TrendSeriesResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 # 시계열 분석(build_trend_series)에서 사용하는 6개 항목 — 모두 "높을수록 양호"로
 # 통일된 척도이므로(featureScoreTier와 동일 규칙), 기울기 부호만으로 개선/악화를
@@ -147,16 +150,30 @@ def build_trend_series(db: Session, user_id: str) -> Optional[TrendSeriesRespons
     overall_score 추이를 항목별로 계산한다. Gemini를 재호출하지 않고 저장된
     result_json만으로 결정론적으로 계산하므로 비용이 들지 않는다."""
     records = get_history_series(db, user_id)
-    if len(records) < TREND_MIN_RECORDS:
-        return None
 
     points: List[SeriesPoint] = []
     feature_series: Dict[str, List[int]] = {key: [] for key in FEATURE_KEYS}
     overall_series: List[int] = []
 
     for record in records:
-        agent_result = load_agent_result(record)
-        feature_scores = agent_result.vision.feature_scores
+        try:
+            agent_result = load_agent_result(record)
+        except Exception as exc:  # noqa: BLE001
+            # 스키마에 새 필드가 추가되기 전에 저장된 아주 오래된 기록은
+            # 지금 스키마로 검증이 실패할 수 있다. 전체 시계열 분석이 그
+            # 한 건 때문에 통째로 실패하지 않도록, 파싱 안 되는 기록은
+            # 건너뛰고 나머지로 계속 진행한다.
+            logger.warning("이력 %s 파싱 실패로 시계열 분석에서 제외: %s", record.id, exc)
+            continue
+
+        vision = agent_result.vision
+        if not vision.image_quality_ok:
+            # 재촬영 안내(사진 인식 실패) 기록은 overall_score/feature_scores가
+            # 모두 0으로 채워진 더미값이라, 그래프에 포함하면 실제 변화가
+            # 아닌 가짜 급락처럼 보인다. 실제 측정치가 아니므로 제외한다.
+            continue
+
+        feature_scores = vision.feature_scores
         points.append(
             SeriesPoint(
                 id=record.id,
@@ -169,6 +186,9 @@ def build_trend_series(db: Session, user_id: str) -> Optional[TrendSeriesRespons
         overall_series.append(record.overall_score)
         for key in FEATURE_KEYS:
             feature_series[key].append(getattr(feature_scores, key))
+
+    if len(points) < TREND_MIN_RECORDS:
+        return None
 
     feature_trends: List[FeatureTrendSummary] = []
     for key in FEATURE_KEYS:
@@ -190,7 +210,7 @@ def build_trend_series(db: Session, user_id: str) -> Optional[TrendSeriesRespons
     declining = [t.label_ko for t in feature_trends if t.direction == "declining"]
 
     overall_desc = {"improving": "개선", "declining": "악화"}.get(overall_direction, "큰 변화 없이 유지")
-    summary_parts = [f"최근 {len(records)}건의 기록을 분석한 결과, 종합 점수는 {overall_desc} 추세입니다."]
+    summary_parts = [f"최근 {len(points)}건의 기록을 분석한 결과, 종합 점수는 {overall_desc} 추세입니다."]
     if improving:
         summary_parts.append(f"{', '.join(improving)} 항목이 개선되고 있어요.")
     if declining:
