@@ -9,6 +9,11 @@ from google.genai import types
 
 from app.core.config import settings
 from app.schemas.vision import SkinAnalysisResult, SkinFeatureScores
+from app.services.image_preprocessing import (
+    QualityMetrics,
+    PreprocessResult,
+    preprocess_for_analysis,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +123,24 @@ POPULATION_REFERENCE = """
   관찰되는 홍반·모세혈관 확장·염증 정도를 기준으로 임상적으로 판단하라.
 """
 
+# 이미지 전처리(화이트밸런스 보정 + 질감 강조본)가 정상 적용된 경우에만
+# 채워지는 안내문. 전처리가 실패해 원본 1장만 보내는 경우(폴백)에는 빈
+# 문자열로 대체해, 존재하지 않는 두 번째 사진을 언급하지 않도록 한다.
+LIGHTING_NOTE = """촬영 환경(실내 조명/자연광 등)에 따른 색 편차를 줄이기 위해
+분석용 사진은 알고리즘으로 화이트밸런스를 근사 보정한 상태다. 다만 원본의
+자연스러운 붉은기(홍조 등)를 지우지 않도록 절반 수준으로만 보정했으므로,
+redness/pigmentation/personal_color 판단은 사진에서 보이는 색을 그대로
+신뢰해도 된다.
+
+사진은 총 2장이 제공된다.
+1번째: 화이트밸런스가 보정된 메인 분석용 사진. 색상을 포함한 모든 판단의
+   기준은 이 사진이다.
+2번째: 모공/주름 등 미세 질감을 더 잘 보이도록 밝기 대비만 강조한 보조
+   사진이다. 색상(H/S)은 원본과 동일하게 유지했지만 밝기 대비가 인위적으로
+   강조되어 있으므로, 이 사진의 색이나 명암 자체를 판단 근거로 삼지 말고
+   오직 모공/주름/피부결 형태를 확인하는 용도로만 참고하라.
+"""
+
 SYSTEM_PROMPT_TEMPLATE = """당신은 피부 상태를 참고용으로 스크리닝하는 AI 어시스턴트다.
 절대 확정적인 의료 진단을 내리지 마라. 항상 "참고용이며 진단이 아니다"라는
 전제를 유지하고, ai_summary 필드에도 이를 명시하라.
@@ -129,6 +152,8 @@ SYSTEM_PROMPT_TEMPLATE = """당신은 피부 상태를 참고용으로 스크리
 {rag_evidence}
 
 {region_reference}
+
+{lighting_note}
 
 가장 먼저, 사진에서 피부/얼굴 영역을 분석 가능한 수준으로 인식할 수 있는지
 판단하라. 이 판단은 **관대하게** 하라 — 약간 어둡거나, 실내 조명이거나,
@@ -603,14 +628,29 @@ def _build_client() -> genai.Client:
 
 
 def _call_gemini(
-    client: genai.Client, model: str, image_bytes: bytes, mime_type: str, system_prompt: str
+    client: genai.Client,
+    model: str,
+    primary_image: Tuple[bytes, str],
+    texture_image: Optional[Tuple[bytes, str]],
+    system_prompt: str,
 ) -> str:
+    """primary_image(화이트밸런스 보정본, 필수)와 texture_image(질감 강조본,
+    전처리가 성공했을 때만 존재)를 함께 Gemini에 보낸다. texture_image가
+    없으면(전처리 전체 실패로 원본 1장만 남은 경우) 기존과 동일하게 이미지
+    1장 + 프롬프트만 보낸다."""
+    contents: list = [types.Part.from_bytes(data=primary_image[0], mime_type=primary_image[1])]
+    if texture_image is not None:
+        contents.append(
+            "위 사진은 모공/주름 등 미세 질감 확인을 돕기 위해 밝기 대비만 강조한 "
+            "보조 사진이다. 색상 판단(붉은기/색소침착/퍼스널컬러)은 반드시 첫 번째 "
+            "사진을 기준으로 하고, 이 사진은 모공/주름/피부결 형태 확인 용도로만 참고하라."
+        )
+        contents.append(types.Part.from_bytes(data=texture_image[0], mime_type=texture_image[1]))
+    contents.append(system_prompt)
+
     response = client.models.generate_content(
         model=model,
-        contents=[
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            system_prompt,
-        ],
+        contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=SkinAnalysisResult,
@@ -618,6 +658,24 @@ def _call_gemini(
         ),
     )
     return response.text
+
+
+def _build_extreme_quality_failure_result(quality: QualityMetrics) -> SkinAnalysisResult:
+    """사전 품질 평가(assess_image_quality)에서 명백한 실패(과다 암부/명부)로
+    판정된 경우, Gemini를 호출하지 않고 즉시 반환한다. 값 구성은 프롬프트가
+    image_quality_ok=false일 때 요구하는 형태와 동일하게 맞춘다."""
+    return SkinAnalysisResult(
+        image_quality_ok=False,
+        quality_note=quality.failure_note,
+        overall_score=0,
+        feature_scores=SkinFeatureScores(
+            pore=0, elasticity=0, moisture=0, wrinkle=0, pigmentation=0, redness=0
+        ),
+        suspected_patterns=[],
+        care_tips=[],
+        needs_dermatologist=False,
+        ai_summary="사진을 다시 촬영해 주세요.",
+    )
 
 
 def analyze_skin_image(
@@ -642,7 +700,30 @@ def analyze_skin_image(
     (docs/SKIN_AGE_RELIABILITY_SPEC.md 참고). "동년배 비교"는 이미
     build_peer_comparison_note()가 별도로 담당하므로 anchor 자체를 바꿀
     필요가 없다.
+
+    전처리(app/services/image_preprocessing.py): Gemini 호출 전에 (1) 완화된
+    화이트밸런스 보정으로 조명색 편차를 줄이고, (2) 색상은 보존한 채 밝기
+    채널만 강화한 질감 강조본을 추가로 만들어 함께 전달하며, (3) 사전 품질
+    평가에서 명백히 분석 불가능한 사진(과다 암부/명부)이면 Gemini를 호출하지
+    않고 바로 재촬영 안내를 반환한다. 전처리 자체가 실패하면(손상된 파일 등)
+    기존 방식(원본 그대로, 이미지 1장)으로 조용히 폴백한다. RAG 임베딩은
+    참고 인덱스와의 정합성을 위해 항상 원본 바이트로 계산한다.
     """
+    try:
+        preprocessed: Optional[PreprocessResult] = preprocess_for_analysis(image_bytes)
+    except Exception as exc:  # noqa: BLE001 - 전처리 실패는 분석 자체를 막지 않는다
+        logger.warning("이미지 전처리 실패, 원본 이미지로 분석을 진행합니다: %s", exc)
+        preprocessed = None
+
+    if preprocessed is not None and preprocessed.quality.is_extreme_failure:
+        logger.info(
+            "사전 품질 평가에서 명백한 실패 판정(dark_ratio=%.2f, bright_ratio=%.2f), "
+            "Gemini 호출을 건너뜁니다.",
+            preprocessed.quality.dark_ratio,
+            preprocessed.quality.bright_ratio,
+        )
+        return _build_extreme_quality_failure_result(preprocessed.quality)
+
     client = _build_client()
 
     try:
@@ -661,20 +742,29 @@ def analyze_skin_image(
 
     population_reference = POPULATION_REFERENCE
     region_reference = _build_region_reference_text()
+    lighting_note = LIGHTING_NOTE if preprocessed is not None else ""
 
     system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
         disease_reference=DISEASE_REFERENCE,
         population_reference=population_reference,
         rag_evidence=rag_evidence,
         region_reference=region_reference,
+        lighting_note=lighting_note,
     )
+
+    if preprocessed is not None:
+        primary_image: Tuple[bytes, str] = (preprocessed.wb_corrected_jpeg, "image/jpeg")
+        texture_image: Optional[Tuple[bytes, str]] = (preprocessed.texture_enhanced_jpeg, "image/jpeg")
+    else:
+        primary_image = (image_bytes, mime_type)
+        texture_image = None
 
     models_to_try = [settings.gemini_primary_model, settings.gemini_fallback_model]
 
     last_error: Exception | None = None
     for model in models_to_try:
         try:
-            raw_text = _call_gemini(client, model, image_bytes, mime_type, system_prompt)
+            raw_text = _call_gemini(client, model, primary_image, texture_image, system_prompt)
             data = json.loads(raw_text)
             return SkinAnalysisResult.model_validate(data)
         except Exception as exc:  # noqa: BLE001 - 모델별 예외를 모두 잡아 fallback 처리
