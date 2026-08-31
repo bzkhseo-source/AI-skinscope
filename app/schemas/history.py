@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.vision import SkinFeatureScores
+
 
 class HistoryEntry(BaseModel):
     """이력 목록의 개별 항목 (요약본)"""
@@ -29,3 +31,34 @@ class HistoryResponse(BaseModel):
     user_id: str
     entries: List[HistoryEntry]
     trend: Optional[TrendInfo] = None
+
+
+class SeriesPoint(BaseModel):
+    """시계열 분석용 단일 시점 데이터 (오래된 순 정렬)"""
+
+    id: int
+    created_at: datetime
+    overall_score: int
+    feature_scores: SkinFeatureScores
+    skin_age: Optional[int] = None
+
+
+class FeatureTrendSummary(BaseModel):
+    """항목 하나의 전체 기간 변화 추세 (선형 회귀 기울기 기반)"""
+
+    key: str
+    label_ko: str
+    first_score: int
+    last_score: int
+    delta: int = Field(..., description="last_score - first_score. 양수면 개선")
+    direction: str = Field(..., description="'improving' | 'declining' | 'stable'")
+
+
+class TrendSeriesResponse(BaseModel):
+    """이력 전체를 시계열로 분석한 결과 (FR-09 확장: 2건 비교가 아닌 전체 기간 추세)"""
+
+    user_id: str
+    series: List[SeriesPoint]
+    feature_trends: List[FeatureTrendSummary]
+    overall_direction: str = Field(..., description="'improving' | 'declining' | 'stable'")
+    summary_message: str
