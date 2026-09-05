@@ -681,6 +681,18 @@ function overallScoreTier(score) {
 // 성분 효능 원문(완전한 문장)을 개조식 불릿으로 쪼갠다. 문장 끝
 // (마침표/물음표/느낌표 다음 공백, 줄바꿈)을 기준으로 나누고 빈 조각을
 // 버린 뒤 최대 maxLines개로 자른다.
+// 실제 성분 사진 대신 고민 카테고리를 한눈에 구분할 수 있는 아이콘 (피드백 #163: 가독성/시각 자료 요청)
+const CONCERN_ICONS = {
+  pore: "🔍",
+  acne: "🔴",
+  wrinkle: "〰️",
+  pigmentation: "🟤",
+  redness: "🌡️",
+  elasticity: "💪",
+  dryness: "💧",
+  sensitivity: "⚠️",
+};
+
 function splitEfficacyToBullets(text, maxLines) {
   if (!text) return [];
   return text
@@ -913,7 +925,8 @@ function renderResult(result, thumbUrl) {
 
       const title = document.createElement("div");
       title.className = "ingredient-group-title";
-      title.textContent = `${group.concern_label_ko} 관리에 도움이 되는 성분`;
+      const icon = CONCERN_ICONS[group.concern_key] || "✨";
+      title.innerHTML = `<span class="ingredient-group-icon" aria-hidden="true">${icon}</span>${group.concern_label_ko} 관리에 도움이 되는 성분`;
       groupDiv.appendChild(title);
 
       group.ingredients.forEach((ing) => {
@@ -931,9 +944,10 @@ function renderResult(result, thumbUrl) {
         item.innerHTML = `
           <div class="ingredient-name-row">
             <span class="ingredient-name">${ing.name_ko}</span>
-            <span class="ingredient-search">관련 화장품 검색 →</span>
+            <span class="ingredient-usage-badge">바르는 성분</span>
           </div>
           ${bulletsHtml}
+          <span class="ingredient-search-cta">관련 화장품 검색 →</span>
         `;
         groupDiv.appendChild(item);
       });

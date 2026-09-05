@@ -20,8 +20,8 @@
 
   /* Type */
   --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Inter', -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-body: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Noto Sans KR', 'Courier New', monospace;
 
   /* Layout — 부드러운 라운딩 + 그림자 */
   --radius-card: 26px;
@@ -904,9 +904,16 @@ body {
 }
 
 .ingredient-group-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.ingredient-group-icon {
+  font-size: 16px;
+  margin-right: 6px;
 }
 
 .ingredient-item {
@@ -914,8 +921,8 @@ body {
   border: 1px solid var(--color-line);
   border-radius: var(--radius-card-sm);
   background: var(--color-surface);
-  padding: 10px 12px;
-  margin-bottom: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
   text-decoration: none;
   color: inherit;
 }
@@ -924,32 +931,43 @@ body {
 
 .ingredient-item .ingredient-name-row {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .ingredient-item .ingredient-name {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 15px;
 }
 
-.ingredient-item .ingredient-search {
-  font-family: var(--font-mono);
+.ingredient-item .ingredient-usage-badge {
   font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
   color: var(--color-accent);
   white-space: nowrap;
 }
 
-.ingredient-efficacy-list {
-  margin: 6px 0 0;
-  padding-left: 16px;
+.ingredient-item .ingredient-search-cta {
+  display: inline-block;
+  margin-top: 10px;
   font-size: 12px;
-  color: var(--color-ink-soft);
-  line-height: 1.5;
+  font-weight: 600;
+  color: var(--color-accent);
 }
 
-.ingredient-efficacy-list li { margin-bottom: 2px; }
+.ingredient-efficacy-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  line-height: 1.65;
+}
+
+.ingredient-efficacy-list li { margin-bottom: 4px; }
 
 /* ---------- 퍼스널컬러 (참고용 재미 기능) ---------- */
 .personal-color-undertone {
