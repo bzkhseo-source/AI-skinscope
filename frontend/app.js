@@ -699,6 +699,9 @@ function splitEfficacyToBullets(text, maxLines) {
     .split(/(?<=[.!?])\s+|\n+/)
     .map((s) => s.trim())
     .filter(Boolean)
+    // 원본 성분 데이터(AI Hub 지식성분데이터)에 일부 항목은 한글 설명 뒤에
+    // 영문 설명이 그대로 이어 붙어 있어, 한글이 포함된 문장만 노출한다.
+    .filter((s) => /[가-힣]/.test(s))
     .slice(0, maxLines);
 }
 
