@@ -2,7 +2,11 @@
 // 개발 중 파일이 자주 바뀌므로, 항상 최신 파일을 먼저 시도하고
 // 오프라인일 때만 캐시로 대체한다. CACHE_NAME을 바꿔서 이전 버전
 // (skinscope-v1)의 낡은 캐시를 강제로 폐기한다.
-const CACHE_NAME = "skinscope-v5";
+// v6: 성분 추천 효능 영문 필터 수정(12a3afd) 배포 후에도 기기에 설치된
+// PWA가 이전 app.js를 계속 쓰는 사례가 있어, CACHE_NAME을 올려 구버전
+// 캐시를 강제 폐기하고 새 service worker를 즉시 활성화(activate 시점에
+// skipWaiting/clients.claim이 이미 적용되어 있어 설치 후 바로 적용됨).
+const CACHE_NAME = "skinscope-v6";
 const PRECACHE_URLS = [
   "index.html",
   "styles.css",
