@@ -6,7 +6,6 @@ AI 피부 상태 스크리닝 & 코칭 서비스 — 스마트폰 카메라로 �
 
 🔗 배포 주소: **<https://ai-skinscope.vercel.app>**
 
-경남 코디세이(Gyeongnam Codyssey) AI 네이티브 과정 Final Project(팀미션 3-3) 산출물입니다.
 
 ---
 
