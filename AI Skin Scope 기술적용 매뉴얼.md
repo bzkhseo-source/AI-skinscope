@@ -35,7 +35,7 @@
                            에이전트 판단 로직)      ──────────▶  OpenWeatherMap API
                                   │                          (자외선 지수)
                                   ▼
-                          app/models + SQLite/PostgreSQL
+                          app/models + SQLite(개발)/PostgreSQL(Neon, 배포)
                           (이력·공유링크 영속 저장)
                                   ▲
                           app/data/*.json
@@ -351,10 +351,18 @@ Gemini Vision에 원본 임베딩(RAG용, 미보정) + 보정본 + 질감강조�
 | --- | --- | --- |
 | 프론트엔드(PWA) | Vercel | 정적 파일 배포, `index.html`/`share.html` 진입점 |
 | 백엔드(FastAPI) | Render | `gemini_primary_model` 쿼터 초과 시 `gemini_fallback_model`로 자동 전환 |
-| 데이터베이스 | SQLite(로컬 개발) / PostgreSQL(Render, `DATABASE_URL` 환경변수로 전환) | |
+| 데이터베이스 | SQLite(로컬 개발) / PostgreSQL(Neon, `DATABASE_URL` 환경변수로 전환) | 2026-10-14부로 Render 자체 제공 무료 PostgreSQL에서 Neon으로 이전(아래 8.1절 참고) |
 | 외부 API | Google Gemini, 카카오맵 로컬검색, OpenWeatherMap | 카카오맵/UV는 키 미설정 시 해당 기능만 조용히 비활성화 |
 
 배포 버전 추적은 커밋 단위 `VERSION`/`CHANGELOG.md` 체계(6.1절)를 그대로 따릅니다.
+
+### 8.1 데이터베이스 이전 이력 — Render PostgreSQL → Neon (2026-10-14)
+
+- **발생한 문제**: Render가 제공하는 무료 티어 PostgreSQL은 생성 후 30일이 지나면 자동 만료·삭제된다(2026년 기준 정책, 기존 90일에서 단축). 만료된 DB 호스트네임이 더는 DNS로 해석되지 않아 `psycopg2.OperationalError: could not translate host name`이 발생했다.
+- **왜 서비스 전체가 멈췄는가**: `app/main.py`가 모듈 임포트 시점에 `Base.metadata.create_all(bind=engine)`과 `_migrate_add_missing_columns()`를 가드 없이 바로 실행한다. DB 연결이 실패하면 이 시점에 Uvicorn 프로세스 자체가 기동에 실패해, DB와 무관한 다른 라우터(`analyze` 등)까지 전부 응답 불가 상태가 되었다. 즉 "데이터 저장 기능만" 영향을 받는 구조가 아니다.
+- **대응**: 무료 티어에서도 만료되지 않는 Neon(Postgres-as-a-service)으로 데이터베이스를 교체했다. Neon CLI로 프로젝트를 생성·연결해 발급받은 `DATABASE_URL`(표준 `postgresql://...?sslmode=require&channel_binding=require` 형식)을 Render 백엔드 서비스의 환경변수에 그대로 반영했다. `app/models/database.py`가 `database_url`을 변환 없이 `create_engine()`에 그대로 전달하는 구조라 코드 변경은 필요하지 않았다.
+- **검증**: `/history/{user_id}` 등 DB 의존 엔드포인트를 실제 배포 URL에 호출해 정상 응답(200 OK)을 확인했다.
+- **재발 방지 메모**: 현재 구조상 DB 연결 실패가 전체 서비스 장애로 번지는 구조적 리스크는 남아있다 — 추후 개선 시 `app/main.py`의 초기화 로직을 FastAPI `startup` 이벤트로 옮기고 예외를 잡아, DB 장애 시에도 DB와 무관한 기능은 계속 동작하도록 분리하는 것을 고려할 수 있다.
 
 ---
 
