@@ -6,7 +6,6 @@ from urllib.parse import quote
 
 from app.schemas.agent import ConcernProductRecommendation, IngredientRecommendation
 from app.schemas.vision import SkinAnalysisResult
-from app.services import naver_service
 
 logger = logging.getLogger(__name__)
 
@@ -57,24 +56,30 @@ def _load_ingredient_concerns() -> dict:
     return _ingredient_map_cache
 
 
-# "댕댕이나무열매즙"처럼 성분 한글명에 "댕댕이"(강아지를 뜻하는 인터넷 속어)
-# 등 반려동물 연상 단어가 포함된 경우, 검색 결과에 애견용품이 섞여 나온다.
-# 사람용 화장품임을 명시하고 반려동물 관련 키워드를 제외해 정확도를 높인다.
-SEARCH_EXCLUDE_TERMS = ["강아지", "반려동물", "펫", "애견", "고양이"]
-
-
+# 네이버쇼핑 검색 오픈API(openapi.naver.com/v1/search/shop.json)는 2026-07-31부로
+# 대체 없이 완전히 종료되어(NAVER API HUB로도 이전되지 않음; 독립된 4개 소스로
+# 교차 확인) 더 이상 쓸 수 없다. API 없이도 URL만으로 접근 가능한 네이버쇼핑
+# 일반 검색 링크를 쓴다. 이전에는 "성분 화장품 인체용" 같은 수식어와 반려동물
+# 제외 키워드(-강아지 -반려동물 -펫 -애견 -고양이)를 항상 붙였으나, 실사용자
+# 테스트(2026-10-14)에서 이 조합이 오히려 검색 결과를 0건으로 만드는 것으로
+# 확인되어 제거했다. 쿼리는 "{성분명} 화장품" 수준으로 단순하게 유지한다.
+# 자세한 조사 경과는 docs/개선 과정 작업지시서/INGREDIENT_PRODUCT_LINK_SPEC.md 참고.
 def _build_search_url(name_ko: str) -> str:
-    """범용 검색 링크(폴백용). 성분명으로 쇼핑 통합검색 결과를 보여준다."""
-    exclude = " ".join(f"-{term}" for term in SEARCH_EXCLUDE_TERMS)
-    query = quote(f"{name_ko} 성분 화장품 인체용 {exclude}")
+    """성분명으로 네이버쇼핑에서 관련 화장품을 검색하는 링크를 만든다."""
+    query = quote(f"{name_ko} 화장품")
     return f"https://search.shopping.naver.com/search/all?query={query}"
 
 
-def _resolve_search_url(name_ko: str) -> str:
-    """네이버쇼핑 검색 API로 실제 화장품 완제품 링크를 우선 찾고, 찾지 못하면
-    (API 키 미설정 포함) 기존 범용 검색 링크로 degrade한다."""
-    product_url = naver_service.find_cosmetic_product_url(name_ko)
-    return product_url or _build_search_url(name_ko)
+# "댕댕이나무열매즙"은 성분 한글명에 "댕댕이"(강아지를 뜻하는 인터넷 속어)가
+# 들어있어, 그 이름으로 등록된 화장품 완제품이 네이버쇼핑에 없고 유사상품
+# 매칭이 애견용품 쪽으로 쏠린다(스크린샷으로 확인, 2026-10-14). 쿼리를 아무리
+# 다듬어도 정상적인 검색 링크를 만들 수 없는 케이스라, 검색 쿼리가 아니라
+# 추천 후보 선정 단계에서 제외한다. concern_ingredient_map.json을 재생성하는
+# scripts/build_ingredient_map.py를 건드리지 않고도 안정적으로 제외하기 위해
+# 데이터가 아닌 이 서비스 계층에서 이름으로 걸러낸다. 빠진 자리는 그 고민
+# 카테고리의 다음 순위 성분이 채운다. 비슷한 이름-충돌 성분이 추가로 발견되면
+# 이 집합에 추가한다.
+EXCLUDED_INGREDIENT_NAMES = {"댕댕이나무열매즙"}
 
 
 def _build_concern_recommendation(concern_key: str) -> Optional[ConcernProductRecommendation]:
@@ -95,16 +100,18 @@ def _build_concern_recommendation(concern_key: str) -> Optional[ConcernProductRe
         source_ingredients = concern_data.get("top_ingredients", [])
 
     ingredients: List[IngredientRecommendation] = []
-    for item in source_ingredients[:TOP_INGREDIENTS_PER_CONCERN]:
+    for item in source_ingredients:
+        if len(ingredients) >= TOP_INGREDIENTS_PER_CONCERN:
+            break
         name_ko = item.get("name_ko") or item.get("inci_name", "")
-        if not name_ko:
+        if not name_ko or name_ko in EXCLUDED_INGREDIENT_NAMES:
             continue
         ingredients.append(
             IngredientRecommendation(
                 inci_name=item.get("inci_name", ""),
                 name_ko=name_ko,
                 efficacy=item.get("efficacy") or None,
-                search_url=_resolve_search_url(name_ko),
+                search_url=_build_search_url(name_ko),
             )
         )
 
@@ -121,9 +128,10 @@ def _build_concern_recommendation(concern_key: str) -> Optional[ConcernProductRe
 def recommend_products(vision: SkinAnalysisResult) -> List[ConcernProductRecommendation]:
     """분석 결과에서 가장 관리가 필요한 부위를 골라 성분 추천 목록을 만든다.
 
-    기획서 12-2절에 따라 실시간 커머스 연동 대신 성분명 기반 검색 링크로
-    대체한다. 사진 인식에 실패한 경우(image_quality_ok=false)에는 추천하지
-    않는다.
+    기획서 12-2절에 따라 실시간 커머스 연동 대신 성분명 기반 네이버쇼핑 검색
+    링크로 대체한다(FR-24). 검색 결과가 구조적으로 틀어지는 성분(예: 댕댕이나무
+    열매즙)은 EXCLUDED_INGREDIENT_NAMES로 추천 후보에서 제외한다. 사진 인식에
+    실패한 경우(image_quality_ok=false)에는 추천하지 않는다.
     """
     if not vision.image_quality_ok:
         return []

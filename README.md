@@ -95,8 +95,6 @@ pip install -r requirements.txt
 GEMINI_API_KEY=...       # Google AI Studio에서 발급
 KAKAO_MAP_API_KEY=...    # 병원 검색용 (선택 — 없으면 병원 검색 기능만 비활성화)
 UV_API_KEY=...           # OpenWeatherMap 무료 티어 (선택 — 없으면 자외선 지수 기능만 비활성화)
-NAVER_CLIENT_ID=...      # 네이버 검색 API (선택 — 없으면 성분 추천 링크가 범용 검색 링크로 대체)
-NAVER_CLIENT_SECRET=...
 DATABASE_URL=sqlite:///./skinscope.db
 ```
 
