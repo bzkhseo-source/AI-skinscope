@@ -2,7 +2,7 @@
 
 > 본 문서는 AI-SkinScope의 시스템 기술 구조를 설명하는 내부 기술 자료입니다. 폴더/프로그램 단위의 역할과 기능, 그리고 AI Hub 공개 데이터셋을 통계적으로 가공해 이미지 분석 정확도를 높이는 방식을 중심으로 정리했습니다.
 >
-> 서비스 기획·요구사항은 [`docs/Service기획서.md`](docs/Service기획서.md), 팀 진행 계획은 [`docs/PLAN.md`](docs/PLAN.md), 기능 요구 명세는 [`docs/기능요구명세서.md`](docs/기능요구명세서.md)를 함께 참고하세요.
+> 서비스 기획·요구사항은 [`docs/Service기획서.md`](docs/Service기획서.md), 기능 요구 명세는 [`docs/기능요구명세서.md`](docs/기능요구명세서.md)를 함께 참고하세요.
 
 - 배포 주소: <https://ai-skinscope.vercel.app> (프론트) / <https://ai-skinscope.onrender.com> (백엔드 API)
 - 기술 스택: FastAPI + SQLAlchemy(백엔드), Vanilla JS/HTML/CSS PWA(프론트, 프레임워크 없음), Google Gemini Vision/Embedding(AI)
