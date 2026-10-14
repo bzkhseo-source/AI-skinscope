@@ -53,7 +53,7 @@ AI 피부 상태 스크리닝 & 코칭 서비스 — 스마트폰 카메라로 �
 | Backend | FastAPI, SQLAlchemy, SQLite(개발) |
 | AI | Google Gemini Vision(`gemini-3.6-flash`, fallback `gemini-3.5-flash-lite`), `gemini-embedding-2`(768차원, RAG용) |
 | Frontend | Vanilla JS/HTML/CSS 기반 PWA (프레임워크·번들러 없음) |
-| 외부 API | 카카오맵 로컬 검색(병원 검색), OpenWeatherMap(자외선 지수) |
+| 외부 API | 카카오맵 로컬 검색(병원 검색), OpenWeatherMap(자외선 지수), 네이버쇼핑 검색(성분 추천 상품 링크) |
 | 데이터 | AI Hub "한국인 피부상태 측정 데이터", "안면부 피부질환 이미지 합성 데이터" (자세한 사용 범위는 `docs/Service기획서.md` 4장 참고) |
 
 ## 5. 폴더 구조
@@ -95,6 +95,8 @@ pip install -r requirements.txt
 GEMINI_API_KEY=...       # Google AI Studio에서 발급
 KAKAO_MAP_API_KEY=...    # 병원 검색용 (선택 — 없으면 병원 검색 기능만 비활성화)
 UV_API_KEY=...           # OpenWeatherMap 무료 티어 (선택 — 없으면 자외선 지수 기능만 비활성화)
+NAVER_CLIENT_ID=...      # 네이버 검색 API (선택 — 없으면 성분 추천 링크가 범용 검색 링크로 대체)
+NAVER_CLIENT_SECRET=...
 DATABASE_URL=sqlite:///./skinscope.db
 ```
 

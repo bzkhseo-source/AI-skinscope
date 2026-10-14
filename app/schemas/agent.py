@@ -21,7 +21,12 @@ class IngredientRecommendation(BaseModel):
     name_ko: str = Field(..., description="성분 한글명")
     efficacy: Optional[str] = Field(default=None, description="성분 효능 설명")
     search_url: str = Field(
-        ..., description="실시간 커머스 연동 대신 제공하는 성분 관련 검색 링크"
+        ...,
+        description=(
+            "성분 관련 상품 링크. 네이버쇼핑 검색 API 키가 설정된 경우 해당 "
+            "성분이 든 화장품 완제품의 실제 상품 링크이고, 미설정이거나 적합한 "
+            "결과가 없으면 범용 검색 링크로 대체된다"
+        ),
     )
 
 

@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from app.schemas.agent import ConcernProductRecommendation, IngredientRecommendation
 from app.schemas.vision import SkinAnalysisResult
+from app.services import naver_service
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,17 @@ SEARCH_EXCLUDE_TERMS = ["강아지", "반려동물", "펫", "애견", "고양이
 
 
 def _build_search_url(name_ko: str) -> str:
-    """실시간 커머스 연동 대신, 성분명으로 검색할 수 있는 링크를 대체 제공한다."""
+    """범용 검색 링크(폴백용). 성분명으로 쇼핑 통합검색 결과를 보여준다."""
     exclude = " ".join(f"-{term}" for term in SEARCH_EXCLUDE_TERMS)
     query = quote(f"{name_ko} 성분 화장품 인체용 {exclude}")
     return f"https://search.shopping.naver.com/search/all?query={query}"
+
+
+def _resolve_search_url(name_ko: str) -> str:
+    """네이버쇼핑 검색 API로 실제 화장품 완제품 링크를 우선 찾고, 찾지 못하면
+    (API 키 미설정 포함) 기존 범용 검색 링크로 degrade한다."""
+    product_url = naver_service.find_cosmetic_product_url(name_ko)
+    return product_url or _build_search_url(name_ko)
 
 
 def _build_concern_recommendation(concern_key: str) -> Optional[ConcernProductRecommendation]:
@@ -96,7 +104,7 @@ def _build_concern_recommendation(concern_key: str) -> Optional[ConcernProductRe
                 inci_name=item.get("inci_name", ""),
                 name_ko=name_ko,
                 efficacy=item.get("efficacy") or None,
-                search_url=_build_search_url(name_ko),
+                search_url=_resolve_search_url(name_ko),
             )
         )
 
