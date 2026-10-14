@@ -418,6 +418,84 @@ def build_peer_comparison_note(
     return f"{label} 평균과 전반적으로 비슷한 수준입니다."
 
 
+# build_peer_comparison_note()와 동일한 임계치(±8점)를 사용해, "이 정도
+# 차이부터 사용자에게 언급할 가치가 있다"는 판단 기준을 두 함수가 공유한다.
+SIMILAR_CASE_MIN_DIFF = 8
+
+
+def build_similar_case_note(
+    feature_scores: SkinFeatureScores, similar_profiles: List[dict]
+) -> Optional[str]:
+    """사진 임베딩이 가장 닮은 실제 실측 사례(top-k)의 평균값과 최종
+    feature_scores를 비교해 투명성 코멘트 한 줄을 만든다 (방향 3: 신뢰도·
+    추적성 보강).
+
+    주의: 이 비교는 "DB 쪽이 더 정확하다"는 뜻이 아니다. leave-one-out
+    검증 결과(참조 풀을 300명 -> 965명으로 늘려도 오차가 11~21점 수준으로
+    줄지 않음) 이 임베딩 유사도만으로는 실측값을 안정적으로 예측하기
+    어렵다는 것을 확인했다. 그래서 이 함수는 feature_scores를 보정하지
+    않고, "이런 참고 근거가 있었다"를 투명하게 보여주는 용도로만 쓴다.
+    """
+    if not similar_profiles:
+        return None
+
+    n = len(similar_profiles)
+
+    def avg_of(key: str) -> Optional[float]:
+        vals = [p[key] for p in similar_profiles if p.get(key) is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    # (한글 라벨, 사용자 점수, 유사 사례 그룹 점수)
+    comparisons: List[Tuple[str, int, int]] = []
+
+    moisture = avg_of("moisture")
+    if moisture is not None:
+        comparisons.append(("수분", feature_scores.moisture, _interp_score(moisture, MOISTURE_PERCENTILES)))
+
+    elasticity = avg_of("elasticity")
+    if elasticity is not None:
+        comparisons.append(
+            ("탄력", feature_scores.elasticity, _interp_score(elasticity, ELASTICITY_PERCENTILES))
+        )
+
+    wrinkle = avg_of("wrinkle_ra")
+    if wrinkle is not None:
+        comparisons.append(
+            ("주름", feature_scores.wrinkle, _interp_score(wrinkle, WRINKLE_PERCENTILES, higher_is_better=False))
+        )
+
+    pigmentation = avg_of("pigmentation_count")
+    if pigmentation is not None:
+        comparisons.append(
+            (
+                "색소침착",
+                feature_scores.pigmentation,
+                _interp_score(pigmentation, PIGMENTATION_PERCENTILES, higher_is_better=False),
+            )
+        )
+
+    pore = avg_of("pore_count")
+    if pore is not None:
+        comparisons.append(
+            ("모공", feature_scores.pore, _interp_score(pore, PORE_PERCENTILES, higher_is_better=False))
+        )
+
+    if not comparisons:
+        return None
+
+    diffs = [(label, user_score - group_score) for label, user_score, group_score in comparisons]
+    diffs.sort(key=lambda item: item[1])
+    worst_label, worst_diff = diffs[0]
+    best_label, best_diff = diffs[-1]
+
+    base = f"사진이 가장 닮은 실제 피부 측정 사례 {n}명의 실측 평균과 비교하면"
+    if worst_diff <= -SIMILAR_CASE_MIN_DIFF:
+        return f"{base} {worst_label} 항목이 그 사례들보다 낮게 나왔습니다."
+    if best_diff >= SIMILAR_CASE_MIN_DIFF:
+        return f"{base} {best_label} 항목이 그 사례들보다 높게 나왔습니다."
+    return f"{base} 전반적으로 비슷한 수준입니다."
+
+
 def _load_region_reference() -> dict:
     """부위별(이마/왼쪽볼/오른쪽볼/턱) 실측 백분위 참고 데이터를 최초 1회만 로드해 캐시한다."""
     global _region_reference_cache
@@ -682,6 +760,17 @@ def analyze_skin_image(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
 ) -> SkinAnalysisResult:
+    """analyze_skin_image_with_evidence()의 결과 중 SkinAnalysisResult만 반환하는
+    하위 호환용 래퍼. scripts/test_vision_local.py 등 기존 호출부를 깨지 않기
+    위해 유지한다."""
+    result, _similar_measurements = analyze_skin_image_with_evidence(image_bytes, mime_type)
+    return result
+
+
+def analyze_skin_image_with_evidence(
+    image_bytes: bytes,
+    mime_type: str = "image/jpeg",
+) -> Tuple[SkinAnalysisResult, List[dict]]:
     """
     피부 사진을 Gemini Vision으로 분석한다.
     기본 모델(gemini-3.6-flash) 호출 실패(쿼터 초과 등) 시
@@ -708,6 +797,14 @@ def analyze_skin_image(
     않고 바로 재촬영 안내를 반환한다. 전처리 자체가 실패하면(손상된 파일 등)
     기존 방식(원본 그대로, 이미지 1장)으로 조용히 폴백한다. RAG 임베딩은
     참고 인덱스와의 정합성을 위해 항상 원본 바이트로 계산한다.
+
+    반환값은 (SkinAnalysisResult, similar_measurements) 튜플이다.
+    similar_measurements는 RAG로 찾은 실측 근접 사례 top-k의 raw 프로필
+    리스트로, build_similar_case_note()가 사용자에게 보여줄 투명성 코멘트를
+    만드는 데 쓴다(방향 3: 신뢰도·추적성 보강 — leave-one-out 검증 결과
+    이 임베딩 유사도만으로는 점수를 결정론적으로 대체하기엔 오차가 커서,
+    점수 자체는 보정하지 않고 참고 근거만 투명하게 보여주는 쪽으로 결정함).
+    품질 사전 실패로 Gemini를 호출하지 않은 경우에는 빈 리스트다.
     """
     try:
         preprocessed: Optional[PreprocessResult] = preprocess_for_analysis(image_bytes)
@@ -722,7 +819,7 @@ def analyze_skin_image(
             preprocessed.quality.dark_ratio,
             preprocessed.quality.bright_ratio,
         )
-        return _build_extreme_quality_failure_result(preprocessed.quality)
+        return _build_extreme_quality_failure_result(preprocessed.quality), []
 
     client = _build_client()
 
@@ -766,7 +863,7 @@ def analyze_skin_image(
         try:
             raw_text = _call_gemini(client, model, primary_image, texture_image, system_prompt)
             data = json.loads(raw_text)
-            return SkinAnalysisResult.model_validate(data)
+            return SkinAnalysisResult.model_validate(data), similar_measurements
         except Exception as exc:  # noqa: BLE001 - 모델별 예외를 모두 잡아 fallback 처리
             logger.warning("Gemini 모델 %s 호출 실패: %s", model, exc)
             last_error = exc

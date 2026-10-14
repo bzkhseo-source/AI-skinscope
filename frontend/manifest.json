@@ -4,8 +4,8 @@
   "description": "AI 피부 상태 스크리닝 & 코칭 (참고용, 의료 진단 아님)",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#FBF3EA",
-  "theme_color": "#C97A5D",
+  "background_color": "#F3F5FC",
+  "theme_color": "#4F6BED",
   "orientation": "portrait",
   "icons": [
     {

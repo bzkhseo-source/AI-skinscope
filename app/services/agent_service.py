@@ -6,8 +6,9 @@ from app.schemas.vision import SkinAnalysisResult
 from app.services.ingredient_service import recommend_products
 from app.services.kakao_service import search_nearby_dermatology_clinics
 from app.services.vision_service import (
-    analyze_skin_image,
+    analyze_skin_image_with_evidence,
     build_peer_comparison_note,
+    build_similar_case_note,
     compute_skin_age,
 )
 
@@ -75,7 +76,9 @@ def run_skin_analysis_agent(
     age/gender는 선택 입력이며(로드맵 G), Gemini 채점 anchor에는 관여하지
     않고 skin_age/peer_comparison_note 산출에만 사용된다.
     """
-    vision_result = analyze_skin_image(image_bytes, mime_type=mime_type)
+    vision_result, similar_measurements = analyze_skin_image_with_evidence(
+        image_bytes, mime_type=mime_type
+    )
     needs_dermatologist = _decide_needs_dermatologist(vision_result)
 
     hospitals = []
@@ -90,10 +93,14 @@ def run_skin_analysis_agent(
     skin_age = None
     skin_age_reliable = None
     peer_comparison_note = None
+    similar_case_note = None
     if vision_result.image_quality_ok:
         skin_age, skin_age_reliable = compute_skin_age(vision_result.feature_scores, age=age)
         peer_comparison_note = build_peer_comparison_note(
             vision_result.feature_scores, age=age, gender=gender
+        )
+        similar_case_note = build_similar_case_note(
+            vision_result.feature_scores, similar_measurements
         )
 
     return AgentResult(
@@ -107,4 +114,5 @@ def run_skin_analysis_agent(
         skin_age=skin_age,
         skin_age_reliable=skin_age_reliable,
         peer_comparison_note=peer_comparison_note,
+        similar_case_note=similar_case_note,
     )

@@ -803,6 +803,8 @@ function renderResult(result, thumbUrl) {
   }
 
   document.getElementById("scoreValue").textContent = vision.overall_score;
+  // 게이지 카드의 도넛 링(conic-gradient)이 이 값을 읽어 채움 비율을 그린다.
+  document.querySelector(".gauge-card").style.setProperty("--score", vision.overall_score);
 
   const grid = document.getElementById("featureGrid");
   grid.innerHTML = "";
@@ -810,6 +812,7 @@ function renderResult(result, thumbUrl) {
     const tier = featureScoreTier(value);
     const item = document.createElement("div");
     item.className = "feature-item";
+    item.dataset.key = key; // CSS가 항목별 아이콘을 고르는 기준
     item.innerHTML = `
       <div class="feature-item-head">
         <span class="label">${FEATURE_LABELS[key] || key}</span>
@@ -904,6 +907,17 @@ function renderResult(result, thumbUrl) {
     peerNoteEl.style.display = "block";
   } else {
     peerNoteEl.style.display = "none";
+  }
+
+  // 사진 임베딩이 가장 닮은 실제 실측 사례 평균과 비교한 투명성 코멘트.
+  // 점수를 보정하는 근거가 아니라 참고 근거를 투명하게 보여주기 위한
+  // 용도이므로(방향 3), peer_comparison_note와 별도 줄로 둔다.
+  const similarCaseNoteEl = document.getElementById("aiSimilarCaseNoteText");
+  if (result.similar_case_note) {
+    similarCaseNoteEl.textContent = result.similar_case_note;
+    similarCaseNoteEl.style.display = "block";
+  } else {
+    similarCaseNoteEl.style.display = "none";
   }
 
   const tipsList = document.getElementById("careTipsList");
@@ -1249,11 +1263,72 @@ function renderLineChartIntoSvg(svg, values, { width, height, padding, dotRadius
   });
 }
 
+// 종합점수 변화 추이: 둥근 세로 막대 + 점선 눈금 + 날짜 라벨. 가장 최근 막대만
+// 진한 색(.latest)으로 강조한다. 항목별 미니 차트는 꺾은선(renderLineChartIntoSvg) 유지.
+function renderBarChartIntoSvg(svg, values, labels) {
+  svg.innerHTML = "";
+  if (!values || values.length < 2) return;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const width = 300;
+  const chartBottom = 100;
+  const chartHeight = 90;
+  const padding = 16;
+  svg.setAttribute("viewBox", `0 0 ${width} 120`);
+
+  [0, 25, 50, 75, 100].forEach((g) => {
+    const y = chartBottom - (g / 100) * chartHeight;
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", padding);
+    line.setAttribute("x2", width - padding);
+    line.setAttribute("y1", y);
+    line.setAttribute("y2", y);
+    line.setAttribute("class", "trend-chart-grid");
+    svg.appendChild(line);
+  });
+
+  const step = (width - padding * 2) / values.length;
+  const barWidth = Math.max(4, Math.min(12, step * 0.5));
+  // 기록이 많으면 라벨이 겹치므로 최대 6개 정도만 표시한다.
+  const labelEvery = Math.ceil(values.length / 6);
+
+  values.forEach((v, i) => {
+    const h = (Math.max(0, Math.min(100, v)) / 100) * chartHeight;
+    const cx = padding + i * step + step / 2;
+
+    const bar = document.createElementNS(ns, "rect");
+    bar.setAttribute("x", cx - barWidth / 2);
+    bar.setAttribute("y", chartBottom - h);
+    bar.setAttribute("width", barWidth);
+    bar.setAttribute("height", h);
+    bar.setAttribute("rx", barWidth / 2);
+    bar.setAttribute("class", `trend-chart-bar${i === values.length - 1 ? " latest" : ""}`);
+    svg.appendChild(bar);
+
+    const showLabel = labels[i] && (i === values.length - 1 || i % labelEvery === 0);
+    if (showLabel) {
+      const text = document.createElementNS(ns, "text");
+      text.setAttribute("x", cx);
+      text.setAttribute("y", chartBottom + 14);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("class", "trend-chart-label");
+      text.textContent = labels[i];
+      svg.appendChild(text);
+    }
+  });
+}
+
 function drawTrendChart(series) {
   const svg = document.getElementById("trendChartSvg");
   if (!svg) return;
-  const values = (series || []).map((p) => p.overall_score);
-  renderLineChartIntoSvg(svg, values, { width: 300, height: 100, padding: 10, dotRadius: 3 });
+  const points = series || [];
+  const values = points.map((p) => p.overall_score);
+  const labels = points.map((p) => {
+    if (!p.created_at) return "";
+    const d = new Date(p.created_at);
+    return isNaN(d) ? "" : `${d.getMonth() + 1}/${d.getDate()}`;
+  });
+  renderBarChartIntoSvg(svg, values, labels);
 }
 
 // ---------------- 이력분석 리포트 (항목별 그래프 + AI 관리 피드백) ----------------

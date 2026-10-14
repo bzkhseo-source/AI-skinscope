@@ -31,7 +31,7 @@ SPLIT_PREFIXES = {
     "Validation": {"photo": "VS", "label": "VL"},
 }
 SMARTPHONE_SUBDIR = "3. 스마트폰"  # 마침표 뒤 공백 포함 (실제 폴더명 그대로)
-TARGET_COUNT = 300
+TARGET_COUNT = 1072  # k-NN 참조 풀 확장 (기존 300 -> 데이터셋 전수 1,072, 2026-10-14)
 EMBEDDING_MODEL = "gemini-embedding-2"
 OUTPUT_DIM = 768
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "app" / "data" / "reference_measurements.json"

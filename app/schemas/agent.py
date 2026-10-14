@@ -65,3 +65,11 @@ class AgentResult(BaseModel):
         default=None,
         description="나이를 입력한 경우, 동일 연령대(·성별) 그룹과 비교한 한 줄 코멘트",
     )
+    similar_case_note: Optional[str] = Field(
+        default=None,
+        description=(
+            "사진 임베딩이 가장 닮은 실제 실측 사례(AI Hub 한국인 피부상태 측정 데이터) "
+            "평균과 비교한 한 줄 코멘트. 점수를 보정하는 근거가 아니라, 참고 근거를 투명하게 "
+            "보여주기 위한 용도(방향 3: 신뢰도·추적성 보강)"
+        ),
+    )

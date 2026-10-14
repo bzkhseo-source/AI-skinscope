@@ -1,33 +1,45 @@
 /* ==========================================================================
    AI-SkinScope — 디자인 토큰
-   컨셉: "피부 스캔 리포트" — 뷰파인더로 들여다보고 랩 리포트를 받는 경험
+   컨셉: "클리니컬 대시보드" — 흰 카드 + 파랑/코랄 2색 데이터 표현
    ========================================================================== */
 :root {
-  /* Color — Modern Organic & Skincare */
-  --color-bg: #FBF3EA;           /* Warm Soft White */
+  /* Color — Clinical Dashboard (periwinkle blue + coral)
+     파랑 = 양호한 상태, 코랄 = 관리가 필요한 상태. 초록은 개선(증가) 표시에만 쓴다. */
+  --color-bg: #F3F5FC;
   --color-surface: #FFFFFF;
-  --color-surface-warm: #FDF1E7; /* Warm Beige — feature/ingredient 카드용 */
-  --color-ink: #3A2B22;
-  --color-ink-soft: #8C7C71;
-  --color-line: #EFE0D2;
-  --color-accent: #C97A5D;       /* Muted Coral */
-  --color-accent-soft: #F7E4D9;
-  --color-rose: #E3B7A8;
-  --color-amber: #D3903F;
-  --color-brick: #B75B44;
-  --color-sage: #7C9A72;
-  --color-excellent: #4F7A55;    /* 매우 양호 (4단계 상태 태그용) */
+  --color-surface-warm: #F5F7FE; /* 보조 면(입력칸, 성분 카드 등) */
+  --color-ink: #1E293B;
+  --color-ink-soft: #6B7280;
+  --color-line: #E7EAF3;
+  --color-accent: #4F6BED;
+  --color-accent-soft: #E8ECFD;
+  --color-rose: #C7D0FA;
+
+  --blue-1: #4F6BED;   /* 매우 양호 */
+  --blue-2: #A5B4FC;   /* 양호 */
+  --blue-3: #E8ECFD;
+  --coral-1: #E5534B;  /* 관리 필요 */
+  --coral-2: #F9A08E;  /* 주의 */
+  --coral-3: #FDE7E2;
+  --coral-text: #C2410C;
+  --delta-up: #16A34A;
+
+  /* 기존 컴포넌트가 참조하는 상태 변수 (위 팔레트로 매핑) */
+  --color-excellent: #4F6BED;
+  --color-sage: #4F6BED;
+  --color-amber: #C2410C;
+  --color-brick: #E5534B;
 
   /* Type */
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Noto Sans KR', 'Courier New', monospace;
+  --font-display: 'Pretendard Variable', 'Pretendard', 'Inter', system-ui, sans-serif;
+  --font-body: 'Pretendard Variable', 'Pretendard', 'Inter', system-ui, sans-serif;
+  --font-mono: 'Pretendard Variable', 'Pretendard', 'Inter', system-ui, sans-serif;
 
-  /* Layout — 부드러운 라운딩 + 그림자 */
-  --radius-card: 26px;
-  --radius-card-sm: 16px;
+  /* Layout */
+  --radius-card: 14px;
+  --radius-card-sm: 12px;
   --radius-pill: 999px;
-  --shadow-card: 0 18px 40px -22px rgba(58, 43, 30, 0.18);
+  --shadow-card: 0 1px 2px rgba(30, 41, 59, 0.04);
   --max-width: 480px;
 }
 
@@ -290,11 +302,11 @@ body {
   color: var(--color-ink-soft);
 }
 
-.uv-badge.low { background: rgba(124, 154, 114, 0.18); color: var(--color-sage); }
-.uv-badge.moderate { background: rgba(211, 144, 63, 0.18); color: var(--color-amber); }
-.uv-badge.high { background: rgba(183, 91, 68, 0.18); color: var(--color-brick); }
-.uv-badge.very_high { background: rgba(183, 91, 68, 0.3); color: var(--color-brick); }
-.uv-badge.extreme { background: rgba(120, 40, 30, 0.35); color: #7A2820; }
+.uv-badge.low { background: color-mix(in srgb, var(--color-sage) 12%, transparent); color: var(--color-sage); }
+.uv-badge.moderate { background: color-mix(in srgb, var(--color-amber) 14%, transparent); color: var(--color-amber); }
+.uv-badge.high { background: color-mix(in srgb, var(--color-brick) 12%, transparent); color: var(--color-brick); }
+.uv-badge.very_high { background: color-mix(in srgb, var(--color-brick) 20%, transparent); color: var(--color-brick); }
+.uv-badge.extreme { background: color-mix(in srgb, #991B1B 22%, transparent); color: #991B1B; }
 
 .uv-info {
   flex: 1;
@@ -332,7 +344,7 @@ body {
   aspect-ratio: 3 / 4;
   border-radius: var(--radius-card);
   overflow: hidden;
-  background: #171412;
+  background: #1E293B;
 }
 
 .viewfinder-wrap video,
@@ -431,7 +443,7 @@ body {
   gap: 14px;
   padding: 24px;
   text-align: center;
-  background: rgba(23, 20, 18, 0.88);
+  background: rgba(30, 41, 59, 0.88);
 }
 
 .camera-error p {
@@ -752,12 +764,12 @@ body {
   border-radius: var(--radius-pill);
 }
 
-.badge.excellent { background: rgba(79, 122, 85, 0.15); color: var(--color-excellent); }
-.badge.ok { background: rgba(124, 154, 114, 0.15); color: var(--color-sage); }
-.badge.warn { background: rgba(183, 91, 68, 0.12); color: var(--color-brick); }
-.badge.caution { background: rgba(211, 144, 63, 0.15); color: var(--color-amber); }
+.badge.excellent { background: color-mix(in srgb, var(--color-excellent) 12%, transparent); color: var(--color-excellent); }
+.badge.ok { background: color-mix(in srgb, var(--color-sage) 12%, transparent); color: var(--color-sage); }
+.badge.warn { background: color-mix(in srgb, var(--color-brick) 12%, transparent); color: var(--color-brick); }
+.badge.caution { background: color-mix(in srgb, var(--color-amber) 14%, transparent); color: var(--color-amber); }
 /* 종합 점수 6단계 구간 중 나머지 2단계(전문의 진료 권고/백옥 피부 미녀) 전용 스타일 */
-.badge.derm { background: rgba(183, 91, 68, 0.22); color: var(--color-brick); font-weight: 700; }
+.badge.derm { background: color-mix(in srgb, var(--color-brick) 20%, transparent); color: var(--color-brick); font-weight: 700; }
 .badge.top {
   background: linear-gradient(135deg, var(--color-accent-soft), var(--color-rose));
   color: var(--color-accent);
@@ -882,6 +894,14 @@ body {
   margin: 8px 0 0;
   padding-top: 8px;
   border-top: 1px solid var(--color-line);
+}
+
+/* 동년배 비교(aiPeerNoteText)와 유사 실측 사례 비교(aiSimilarCaseNoteText)가
+   둘 다 보일 때, 구분선이 두 줄 겹쳐 보이지 않도록 뒤쪽 노트는 구분선을 뺀다. */
+.ai-peer-note + .ai-peer-note {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 4px;
 }
 
 /* ---------- 결과 요약 배지 (상단 압축 고지) ---------- */
@@ -1399,7 +1419,7 @@ body {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(251, 246, 243, 0.92);
+  background: rgba(243, 245, 252, 0.92);
   display: none;
   align-items: center;
   justify-content: center;
@@ -1431,7 +1451,7 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(58, 43, 34, 0.55);
+  background: rgba(30, 41, 59, 0.5);
   display: none;
   align-items: flex-end;
   justify-content: center;
@@ -1522,3 +1542,122 @@ body {
 .guide-notice h3 { margin-top: 0; }
 
 #guideConfirmBtn { margin-top: 14px; }
+
+/* ---------- 공통 인터랙션 ---------- */
+button,a{transition:background-color .18s,color .18s,border-color .18s,box-shadow .18s,transform .18s}
+:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+#scoreValue,.num,.score,.delta{font-variant-numeric:tabular-nums}
+
+/* ==========================================================================
+   Clinical Dashboard 테마 — 카드/배지/게이지/KPI/이력 타임라인
+   ========================================================================== */
+html,body{background:var(--color-bg);}
+body{background:radial-gradient(900px 500px at 110% -10%,#DCE3FB 0,transparent 60%),radial-gradient(700px 500px at -20% 110%,#E3E8FC 0,transparent 60%),var(--color-bg);background-attachment:fixed;}
+#app{background:transparent;}
+.app-header{background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--color-line);}
+.app-header .logo span{color:var(--color-accent);}
+.section-card,.about-card,.consent-card,.profile-input-card,.uv-card,.user-id-bar,.gauge-card,.feature-item,.history-entry{
+  background:var(--color-surface);border:1px solid var(--color-line);border-radius:var(--radius-card);box-shadow:var(--shadow-card);}
+.section-card h3,.about-card h3{font-size:17px;font-weight:600;color:var(--color-ink);letter-spacing:-.01em;}
+.section-subtext{color:var(--color-ink-soft);}
+
+/* badges: blue = good, coral = attention */
+.badge{font-weight:600;border-radius:8px;padding:3px 8px;}
+.badge.top{background:var(--blue-1);color:#fff;}
+.badge.excellent{background:var(--blue-1);color:#fff;}
+.badge.ok{background:var(--blue-3);color:#3B55D9;}
+.badge.caution{background:var(--coral-3);color:var(--coral-text);}
+.badge.warn{background:var(--coral-1);color:#fff;}
+.badge.derm{background:#B91C1C;color:#fff;}
+.feature-item .bar-fill.excellent{background:var(--blue-1);}
+.feature-item .bar-fill.ok{background:var(--blue-2);}
+.feature-item .bar-fill.caution{background:var(--coral-2);}
+.feature-item .bar-fill.warn{background:var(--coral-1);}
+.bar-track{background:#F1F3FA;height:8px;border-radius:99px;}
+.bar-fill{border-radius:99px;}
+
+/* gauge card -> donut */
+.gauge-card{display:grid;grid-template-columns:1fr auto;align-items:start;gap:4px 12px;position:relative;padding:20px;}
+.gauge-card::before{content:"종합 피부 점수";font-size:17px;font-weight:600;grid-column:1;grid-row:1;}
+.score-thumb-img{grid-column:2;grid-row:1;width:44px;height:44px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--color-line);}
+.score-info{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:136px 1fr;column-gap:18px;row-gap:8px;align-items:center;margin-top:8px;}
+.score-main{grid-column:1;grid-row:1/span 3;width:136px;height:136px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;isolation:isolate;font-size:36px;font-weight:700;}
+.score-main::before{content:"";position:absolute;inset:0;border-radius:50%;z-index:-1;
+  background:conic-gradient(var(--blue-1) calc(var(--score,0)*1%),var(--blue-3) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 14px),#000 calc(100% - 13px));mask:radial-gradient(farthest-side,transparent calc(100% - 14px),#000 calc(100% - 13px));}
+.score-main small{font-size:12px;margin-top:4px;}
+.skin-age-badge,#scoreTierBadge,.score-desc{grid-column:2;justify-self:start;}
+.skin-age-badge{background:var(--blue-3);color:#3B55D9;border-radius:8px;}
+
+/* feature KPI tiles with icon */
+.feature-item{display:grid;grid-template-columns:40px 1fr;column-gap:10px;row-gap:6px;padding:14px;}
+/* 아이콘 타일: ::after = 배경, ::before = 아이콘(mask) */
+.feature-item::before{content:"";grid-row:1/3;width:40px;height:40px;border-radius:10px;background-color:var(--blue-1);
+  box-shadow:inset 0 0 0 40px rgba(255,255,255,.0);-webkit-mask-size:22px;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center;mask-size:22px;mask-repeat:no-repeat;mask-position:center;}
+.feature-item::after{content:"";grid-row:1/3;grid-column:1;width:40px;height:40px;border-radius:10px;background:var(--blue-3);z-index:-1;}
+.feature-item{position:relative;isolation:isolate;}
+.feature-item:has(.badge.caution)::before,.feature-item:has(.badge.warn)::before{background-color:var(--coral-1);}
+.feature-item:has(.badge.caution)::after,.feature-item:has(.badge.warn)::after{background:var(--coral-3);}
+.feature-item-head{grid-column:2;grid-row:1;}.feature-item .num{grid-column:2;grid-row:2;}
+.feature-item::before,.feature-item::after{grid-column:1!important;grid-row:1/3!important;align-self:center;}
+.feature-item::before{z-index:1;}
+.feature-item .bar-track{grid-row:3;}
+.feature-item .bar-track{grid-column:1/-1;}
+.feature-item .label{text-transform:none;font-size:12px;font-weight:500;}
+.feature-item .num{font-size:24px;}
+/* 좁은 2열 타일에서도 라벨·배지가 잘리지 않도록 세로로 쌓는다 */
+.feature-item-head{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px;}
+.feature-item .badge{white-space:nowrap;}
+/* 항목 아이콘: app.js가 .feature-item에 data-key를 붙인다 */
+.feature-item[data-key="pore"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22/%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%222.5%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%229%22/%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%222.5%22/%3E%3C/svg%3E");}
+.feature-item[data-key="elasticity"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M22%2012h-4l-3%209L9%203l-3%209H2%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M22%2012h-4l-3%209L9%203l-3%209H2%22/%3E%3C/svg%3E");}
+.feature-item[data-key="moisture"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%202.7l5.7%205.6a8%208%200%201%201-11.4%200z%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M12%202.7l5.7%205.6a8%208%200%201%201-11.4%200z%22/%3E%3C/svg%3E");}
+.feature-item[data-key="wrinkle"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%207c2-2%204-2%206%200s4%202%206%200%204-2%206%200M2%2013c2-2%204-2%206%200s4%202%206%200%204-2%206%200M2%2019c2-2%204-2%206%200s4%202%206%200%204-2%206%200%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M2%207c2-2%204-2%206%200s4%202%206%200%204-2%206%200M2%2013c2-2%204-2%206%200s4%202%206%200%204-2%206%200M2%2019c2-2%204-2%206%200s4%202%206%200%204-2%206%200%22/%3E%3C/svg%3E");}
+.feature-item[data-key="pigmentation"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%224%22/%3E%3Cpath%20d%3D%22M12%202v2M12%2020v2M4.9%204.9l1.4%201.4M17.7%2017.7l1.4%201.4M2%2012h2M20%2012h2M4.9%2019.1l1.4-1.4M17.7%206.3l1.4-1.4%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%224%22/%3E%3Cpath%20d%3D%22M12%202v2M12%2020v2M4.9%204.9l1.4%201.4M17.7%2017.7l1.4%201.4M2%2012h2M20%2012h2M4.9%2019.1l1.4-1.4M17.7%206.3l1.4-1.4%22/%3E%3C/svg%3E");}
+.feature-item[data-key="redness"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M8.5%2014.5A2.5%202.5%200%200%200%2011%2012c0-1.4-.5-2-1-3-1.1-2.1-.2-4%202-6%20.5%202.5%202%204.9%204%206.5%202%201.6%203%203.5%203%205.5a7%207%200%201%201-14%200c0-1.2.4-2.3%201-3.3.3%201.6%201.2%202.8%202.5%202.8z%22/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22black%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M8.5%2014.5A2.5%202.5%200%200%200%2011%2012c0-1.4-.5-2-1-3-1.1-2.1-.2-4%202-6%20.5%202.5%202%204.9%204%206.5%202%201.6%203%203.5%203%205.5a7%207%200%201%201-14%200c0-1.2.4-2.3%201-3.3.3%201.6%201.2%202.8%202.5%202.8z%22/%3E%3C/svg%3E");}
+
+/* regions as legend rows */
+.region-item{display:grid;grid-template-columns:10px 1fr;column-gap:10px;border-top:1px solid var(--color-line);}
+.region-item::before{content:"";width:8px;height:8px;border-radius:50%;margin-top:7px;background:var(--blue-2);grid-row:1/3;}
+.region-item:has(.badge.caution)::before,.region-item:has(.badge.warn)::before,.region-item:has(.badge.derm)::before{background:var(--coral-1);}
+
+/* UV tile */
+.uv-badge{border-radius:12px;}
+
+/* history */
+.trend-banner{background:var(--color-surface);color:var(--color-ink);border:1px solid var(--color-line);border-radius:var(--radius-card);}
+.trend-banner .trend-label{color:var(--color-ink-soft);opacity:1;font-weight:600;}
+.trend-banner .delta{font-size:30px;font-weight:700;display:inline-flex;align-items:center;gap:8px;}
+.trend-banner .delta::after{content:"종합 점수 변화";font-size:12px;font-weight:600;color:var(--color-ink-soft);background:#F1F3FA;border-radius:8px;padding:3px 8px;}
+.trend-banner #trendMessage{color:var(--color-ink-soft);}
+.trend-chart-svg{height:150px;}
+.trend-chart-bar{fill:var(--blue-2);}
+.trend-chart-bar.latest{fill:var(--blue-1);}
+.trend-chart-grid{stroke:var(--color-line);stroke-dasharray:3 4;}
+.trend-chart-label{font-size:8px;fill:var(--color-ink-soft);}
+.trend-feature-badge{border-radius:10px;border-color:var(--color-line);}
+.trend-feature-badge.up .trend-feature-delta{color:var(--delta-up);}
+.trend-feature-badge.down .trend-feature-delta{color:var(--coral-1);}
+.history-list{position:relative;padding-left:22px;}
+.history-list::before{content:"";position:absolute;left:6px;top:18px;bottom:18px;width:2px;background:var(--color-line);}
+.history-entry{position:relative;}
+.history-entry::before{content:"";position:absolute;left:-21px;top:50%;width:10px;height:10px;margin-top:-5px;border-radius:50%;background:var(--blue-2);box-shadow:0 0 0 3px var(--color-bg);}
+.history-entry:first-child::before{background:#22C55E;}
+.history-entry:first-child .idx::after{content:"최근";margin-left:8px;font-size:11px;font-weight:600;color:var(--coral-1);background:var(--coral-3);border-radius:6px;padding:2px 7px;}
+.history-entry .score{font-weight:700;}
+
+/* buttons / tabs */
+.btn-primary,#userIdSaveBtn{background:var(--color-accent);border-radius:10px;}
+.btn-secondary{border-radius:10px;}
+.tab-bar{background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-top:1px solid var(--color-line);}
+.tab-bar button.active{color:var(--color-accent);}
+
+/* desktop: dashboard grid */
+@media (min-width:900px){
+  :root{--max-width:1040px;}
+  .result-report{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}
+  .result-report>*{min-width:0;}
+  .feature-grid{grid-template-columns:repeat(2,1fr);}
+  .result-report>button,#chatCard,#feedbackCard,.install-banner{grid-column:1/-1;}
+  .tab-bar{max-width:var(--max-width);}
+}
