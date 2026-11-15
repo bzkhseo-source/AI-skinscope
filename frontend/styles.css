@@ -98,23 +98,20 @@ body {
   border-bottom: 1px solid var(--color-line);
 }
 
+/* 브랜드 로고: BI 가로형 로고(icons/brand/logo_horizontal.svg)를 원본 그대로 쓴다.
+   SVG 자체에 상하좌우 여백이 있어 음수 margin으로 헤더 안 위치만 맞추고,
+   로고 이미지는 자르거나 바꾸지 않는다(슬로건 포함). */
 .app-header .logo {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  line-height: 0;
+  min-width: 0;
 }
 
-.app-header .logo span {
-  color: var(--color-accent);
-}
-
-.app-header .tagline {
-  font-size: 11px;
-  color: var(--color-ink-soft);
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.app-header .logo img {
+  display: block;
+  width: 186px;
+  max-width: 100%;
+  height: auto;
+  margin: -6px 0 -6px -8px;
 }
 
 /* ---------- 헤더 우측 버튼 그룹 (사용법 + 뒤로가기) ---------- */
@@ -1555,7 +1552,6 @@ html,body{background:var(--color-bg);}
 body{background:radial-gradient(900px 500px at 110% -10%,#DCE3FB 0,transparent 60%),radial-gradient(700px 500px at -20% 110%,#E3E8FC 0,transparent 60%),var(--color-bg);background-attachment:fixed;}
 #app{background:transparent;}
 .app-header{background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--color-line);}
-.app-header .logo span{color:var(--color-accent);}
 .section-card,.about-card,.consent-card,.profile-input-card,.uv-card,.user-id-bar,.gauge-card,.feature-item,.history-entry{
   background:var(--color-surface);border:1px solid var(--color-line);border-radius:var(--radius-card);box-shadow:var(--shadow-card);}
 .section-card h3,.about-card h3{font-size:17px;font-weight:600;color:var(--color-ink);letter-spacing:-.01em;}

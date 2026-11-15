@@ -6,7 +6,9 @@
 // PWA가 이전 app.js를 계속 쓰는 사례가 있어, CACHE_NAME을 올려 구버전
 // 캐시를 강제 폐기하고 새 service worker를 즉시 활성화(activate 시점에
 // skipWaiting/clients.claim이 이미 적용되어 있어 설치 후 바로 적용됨).
-const CACHE_NAME = "skinscope-v6";
+// v7: 블루 BI(로고·아이콘) 적용 및 iOS 홈 화면 앱 상단/하단 가림 수정 후,
+// 설치된 PWA가 이전 헤더·스타일을 계속 보여주지 않도록 캐시를 교체한다.
+const CACHE_NAME = "skinscope-v7";
 const PRECACHE_URLS = [
   "index.html",
   "styles.css",
