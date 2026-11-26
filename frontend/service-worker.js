@@ -8,7 +8,9 @@
 // skipWaiting/clients.claim이 이미 적용되어 있어 설치 후 바로 적용됨).
 // v7: 블루 BI(로고·아이콘) 적용 및 iOS 홈 화면 앱 상단/하단 가림 수정 후,
 // 설치된 PWA가 이전 헤더·스타일을 계속 보여주지 않도록 캐시를 교체한다.
-const CACHE_NAME = "skinscope-v7";
+// v8: 업로드 전 사진 축소·네트워크 오류 안내(app.js) 수정이 설치된 PWA에도
+// 바로 반영되도록 캐시를 교체한다.
+const CACHE_NAME = "skinscope-v8";
 const PRECACHE_URLS = [
   "index.html",
   "styles.css",

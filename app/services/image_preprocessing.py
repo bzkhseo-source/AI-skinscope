@@ -59,6 +59,46 @@ EXTREME_BRIGHT_RATIO = 0.97
 # 계산해 Gemini 프롬프트에 참고 정보로 넘긴다.
 
 
+# ---- 업로드 이미지 크기 정규화 ----
+# 휴대폰 갤러리 사진은 1,200만~5,000만 화소(원본 수 MB~10MB 이상)라, 원본
+# 그대로 전처리하면 메모리가 작은 서버(Render 512MB)에서 프로세스가 강제
+# 종료되고 브라우저에는 응답 대신 "Failed to fetch"만 남는다(2026-11 특정
+# 기기 오류 보고, 실측: 1,200만 화소 1장 전처리 시 메모리 약 1GB).
+# 긴 변을 이 값 이하로 줄인 뒤 분석 전 과정(임베딩·Gemini·전처리)에 쓴다.
+# 앱 카메라 촬영본(대개 1920px 이하)은 이 크기를 넘지 않아 그대로 통과한다.
+MAX_ANALYSIS_IMAGE_SIDE = 2048
+DOWNSCALED_JPEG_QUALITY = 92
+
+
+class UnreadableImageError(ValueError):
+    """업로드된 파일을 이미지로 읽을 수 없거나 비정상적으로 큰 경우."""
+
+
+def downscale_upload_if_needed(image_bytes: bytes, mime_type: str) -> tuple[bytes, str]:
+    """긴 변이 MAX_ANALYSIS_IMAGE_SIDE를 넘는 사진만 축소해 JPEG로 다시 만든다.
+    넘지 않으면 원본 바이트와 MIME 타입을 그대로 돌려준다(기존 분석과 동일)."""
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        width, height = image.size
+        if max(width, height) <= MAX_ANALYSIS_IMAGE_SIDE:
+            return image_bytes, mime_type
+        # JPEG는 디코딩 단계에서부터 1/2·1/4·1/8로 줄여 읽어, 고화소 원본 전체를
+        # 메모리에 펼치지 않는다(목표 크기 이상은 유지됨).
+        image.draft("RGB", (MAX_ANALYSIS_IMAGE_SIDE, MAX_ANALYSIS_IMAGE_SIDE))
+        image.load()
+    except Image.DecompressionBombError as exc:
+        raise UnreadableImageError("사진 해상도가 너무 큽니다. 다른 사진으로 다시 시도해 주세요.") from exc
+    except Exception as exc:  # noqa: BLE001 - 손상/미지원 파일은 모두 같은 안내로 처리
+        raise UnreadableImageError("사진 파일을 읽을 수 없습니다. 다른 사진으로 다시 시도해 주세요.") from exc
+
+    # 축소 후에는 EXIF가 사라지므로, 회전 정보를 먼저 반영해 방향을 고정한다.
+    image = ImageOps.exif_transpose(image) or image
+    image = image.convert("RGB")
+    image.thumbnail((MAX_ANALYSIS_IMAGE_SIDE, MAX_ANALYSIS_IMAGE_SIDE), Image.Resampling.LANCZOS)
+    logger.info("업로드 사진 축소: %dx%d -> %dx%d", width, height, image.width, image.height)
+    return _to_jpeg_bytes(image, quality=DOWNSCALED_JPEG_QUALITY), "image/jpeg"
+
+
 @dataclass
 class QualityMetrics:
     blur_variance: float
@@ -91,7 +131,10 @@ class PreprocessResult:
 def assess_image_quality(image: Image.Image) -> QualityMetrics:
     """블러(라플라시안 분산)·평균 밝기·암부/명부 비율을 계산한다.
     scipy/cv2 없이 numpy 3x3 컨볼루션만으로 계산해 의존성을 늘리지 않는다."""
-    gray = np.asarray(image.convert("L"), dtype=np.float64)
+    # float32로 충분하다(0~255 정수 밝기). float64를 쓰면 1,200만 화소 사진에서
+    # 이 배열과 라플라시안 중간 배열만으로 수백 MB를 차지해, 메모리가 작은
+    # 서버(Render 512MB)에서 프로세스가 강제 종료되는 원인이 됐다.
+    gray = np.asarray(image.convert("L"), dtype=np.float32)
 
     # 3x3 라플라시안 커널 [[0,1,0],[1,-4,1],[0,1,0]]을 경계를 잘라내고 직접 적용.
     center = gray[1:-1, 1:-1]
@@ -100,9 +143,9 @@ def assess_image_quality(image: Image.Image) -> QualityMetrics:
     left = gray[1:-1, :-2]
     right = gray[1:-1, 2:]
     laplacian = up + down + left + right - 4 * center
-    blur_variance = float(laplacian.var()) if laplacian.size else 0.0
+    blur_variance = float(laplacian.var(dtype=np.float64)) if laplacian.size else 0.0
 
-    mean_brightness = float(gray.mean())
+    mean_brightness = float(gray.mean(dtype=np.float64))
     dark_ratio = float((gray < EXTREME_DARK_PIXEL_THRESHOLD).mean())
     bright_ratio = float((gray > EXTREME_BRIGHT_PIXEL_THRESHOLD).mean())
 
@@ -123,9 +166,9 @@ def correct_white_balance(image: Image.Image) -> Image.Image:
     자연스러운 피부 붉은기까지 지워버리기 때문이다.
     """
     rgb = image.convert("RGB")
-    arr = np.asarray(rgb, dtype=np.float64)
+    arr = np.asarray(rgb, dtype=np.float32)  # 메모리 절약(위 assess_image_quality 주석 참고)
 
-    channel_means = arr.reshape(-1, 3).mean(axis=0)
+    channel_means = arr.reshape(-1, 3).mean(axis=0, dtype=np.float64)
     channel_means = np.clip(channel_means, 1.0, None)
     gray_mean = channel_means.mean()
 
@@ -133,7 +176,9 @@ def correct_white_balance(image: Image.Image) -> Image.Image:
     dampened_gains = 1.0 + WB_STRENGTH * (raw_gains - 1.0)
     gains = np.clip(dampened_gains, WB_MIN_GAIN, WB_MAX_GAIN)
 
-    corrected = np.clip(arr * gains, 0, 255).astype(np.uint8)
+    arr *= gains.astype(np.float32)  # 새 배열을 만들지 않고 제자리 연산
+    np.clip(arr, 0, 255, out=arr)
+    corrected = arr.astype(np.uint8)
     return Image.fromarray(corrected, mode="RGB")
 
 

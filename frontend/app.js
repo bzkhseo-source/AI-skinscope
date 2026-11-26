@@ -593,6 +593,55 @@ async function initUvCard() {
 }
 
 // ---------------- 분석 요청 ----------------
+// ---------------- 업로드 전 사진 크기 줄이기 ----------------
+// 갤러리에서 고른 휴대폰 원본 사진(1,200만~5,000만 화소, 수 MB~10MB 이상)을
+// 그대로 올리면 느린 네트워크에서 업로드가 오래 걸리고, 서버 메모리 부족으로
+// 연결이 끊겨 "Failed to fetch"가 나는 원인이 됐다(2026-11 특정 기기 오류).
+// 긴 변이 이 값보다 클 때만 줄이며, 서버도 같은 기준으로 한 번 더 줄인다.
+// 앱 카메라 촬영본은 대부분 이 크기 이하라 원본 그대로 보낸다.
+const MAX_UPLOAD_IMAGE_SIDE = 2048;
+const UPLOAD_JPEG_QUALITY = 0.92;
+
+async function prepareUploadBlob(blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode(); // 최신 브라우저는 EXIF 회전 정보를 반영해 그린다
+    const longSide = Math.max(img.naturalWidth, img.naturalHeight);
+    if (!longSide || longSide <= MAX_UPLOAD_IMAGE_SIDE) return blob;
+
+    const scale = MAX_UPLOAD_IMAGE_SIDE / longSide;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const resized = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", UPLOAD_JPEG_QUALITY)
+    );
+    return resized || blob;
+  } catch (err) {
+    // 브라우저가 해석하지 못하는 형식 등: 원본을 그대로 보내고 판단은 서버에 맡긴다.
+    console.warn("업로드 전 사진 축소 실패, 원본을 그대로 보냅니다.", err);
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// fetch 자체가 실패한 경우(응답을 받지 못함)는 브라우저마다 메시지가 다르다
+// (Chrome "Failed to fetch", Safari "Load failed", Firefox "NetworkError ...").
+// 사용자에게는 영문 메시지 대신 원인과 다음 행동을 한글로 안내한다.
+function isNetworkFetchError(err) {
+  return (
+    err instanceof TypeError &&
+    /failed to fetch|load failed|networkerror|network request failed/i.test(err.message || "")
+  );
+}
+
+const NETWORK_ERROR_MESSAGE =
+  "서버와 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 잠시 후 다시 시도해 주세요.";
+
 async function submitAnalysis() {
   if (!state.capturedBlob) return;
 
@@ -602,8 +651,9 @@ async function submitAnalysis() {
   try {
     const location = await getLocationWithNotice();
 
+    const uploadBlob = await prepareUploadBlob(state.capturedBlob);
     const formData = new FormData();
-    formData.append("file", state.capturedBlob, "capture.jpg");
+    formData.append("file", uploadBlob, "capture.jpg");
     formData.append("user_id", getUserId());
     if (location) {
       formData.append("latitude", String(location.lat));
@@ -628,7 +678,11 @@ async function submitAnalysis() {
     state.returnScreen = "screen-scan";
     renderResult(result, thumbUrl);
   } catch (err) {
-    alert("분석 중 오류가 발생했습니다: " + err.message);
+    alert(
+      isNetworkFetchError(err)
+        ? NETWORK_ERROR_MESSAGE
+        : "분석 중 오류가 발생했습니다: " + err.message
+    );
     console.error(err);
   } finally {
     loadingOverlay.classList.remove("active");

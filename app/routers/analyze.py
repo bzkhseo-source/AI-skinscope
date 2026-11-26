@@ -8,6 +8,7 @@ from app.schemas.agent import AgentResult
 from app.schemas.feedback import FeedbackRequest
 from app.schemas.share import ShareCreateRequest, ShareLinkResponse
 from app.services.agent_service import run_skin_analysis_agent
+from app.services.image_preprocessing import UnreadableImageError, downscale_upload_if_needed
 from app.services.memory_service import save_feedback, save_record
 from app.services.share_service import create_share_link
 
@@ -15,6 +16,9 @@ router = APIRouter(prefix="/analyze", tags=["analyze"])
 
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_GENDERS = {"female", "male"}
+# 정상적인 휴대폰 사진(수 MB~10MB대)은 충분히 받되, 비정상적으로 큰 파일은
+# 서버 메모리를 쓰기 전에 거절한다.
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 @router.post("", response_model=AgentResult)
@@ -44,11 +48,21 @@ async def analyze_skin(
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="빈 파일입니다.")
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="사진 용량이 너무 큽니다(25MB 초과). 다른 사진으로 다시 시도해 주세요.",
+        )
+
+    try:
+        image_bytes, mime_type = downscale_upload_if_needed(image_bytes, file.content_type)
+    except UnreadableImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
         result = run_skin_analysis_agent(
             image_bytes,
-            mime_type=file.content_type,
+            mime_type=mime_type,
             latitude=latitude,
             longitude=longitude,
             age=age,
